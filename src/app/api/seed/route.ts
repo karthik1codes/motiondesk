@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import { formatApiError, httpStatusFromError } from "@/lib/errors";
 import { runSeed } from "@/lib/orchestrator";
 import { summarizeSession } from "@/lib/session";
@@ -9,6 +10,9 @@ export const maxDuration = 90;
 
 /** POST — NB2 Lite seed still + Gemini 3 Flash motion prompt */
 export async function POST(req: Request) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = (await req.json()) as {
       prompt?: string;

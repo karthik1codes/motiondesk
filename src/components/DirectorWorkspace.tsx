@@ -18,6 +18,7 @@ import {
   pushServerActiveSession,
 } from "@/lib/active-session-client";
 import { useAuth } from "@/lib/auth-context";
+import { authFetch } from "@/lib/auth-fetch";
 import { formatApiError } from "@/lib/errors";
 import {
   LAST_SESSION_KEY,
@@ -203,7 +204,7 @@ export function DirectorWorkspace() {
   const bindSharedSession = useCallback(
     (id: string) => {
       rememberSession(id);
-      void fetch(`/api/session/${id}/cloud`, {
+      void authFetch(`/api/session/${id}/cloud`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -220,7 +221,7 @@ export function DirectorWorkspace() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/session");
+        const res = await authFetch("/api/session");
         if (!res.ok) return;
         const data = (await res.json()) as {
           sessions?: Array<{ id: string; updatedAt?: string }>;
@@ -337,7 +338,7 @@ export function DirectorWorkspace() {
           const fromServer = await fetchServerActiveSession(getIdToken);
           if (!fromServer || cancelled) return;
           try {
-            const res = await fetch(`/api/session/${fromServer}?includeMedia=1`);
+            const res = await authFetch(`/api/session/${fromServer}?includeMedia=1`);
             if (!res.ok || cancelled) return;
             const data = (await res.json()) as SessionResumePayload;
             if (cancelled) return;
@@ -357,7 +358,7 @@ export function DirectorWorkspace() {
       if (!saved || cancelled) return;
 
       try {
-        const res = await fetch(`/api/session/${saved}?includeMedia=1`);
+        const res = await authFetch(`/api/session/${saved}?includeMedia=1`);
         if (!res.ok) {
           setSessionHistory(forgetSessionFromHistory(saved));
           return;
@@ -405,7 +406,7 @@ export function DirectorWorkspace() {
       void clearServerActiveSession(getIdToken);
       resetWorkspaceLocalState();
       setSessionId(null);
-      const res = await fetch("/api/session", {
+      const res = await authFetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aspectRatio }),
@@ -445,7 +446,7 @@ export function DirectorWorkspace() {
       setError(null);
       beginBusy("session", "Switching session (may pull from cloud)…");
       try {
-        const res = await fetch(`/api/session/${id}?includeMedia=1`);
+        const res = await authFetch(`/api/session/${id}?includeMedia=1`);
         if (!res.ok) {
           setSessionHistory(forgetSessionFromHistory(id));
           setError(
@@ -504,7 +505,7 @@ export function DirectorWorkspace() {
 
     for (const candidate of candidates) {
       try {
-        const check = await fetch(`/api/session/${candidate}`);
+        const check = await authFetch(`/api/session/${candidate}`);
         if (check.ok) {
           bindSharedSession(candidate);
           return candidate;
@@ -515,7 +516,7 @@ export function DirectorWorkspace() {
       }
     }
 
-    const res = await fetch("/api/session", {
+    const res = await authFetch("/api/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aspectRatio }),
@@ -549,7 +550,7 @@ export function DirectorWorkspace() {
       beginBusy("session", "Deleting session…");
       setError(null);
       try {
-        const res = await fetch(`/api/session/${id}`, { method: "DELETE" });
+        const res = await authFetch(`/api/session/${id}`, { method: "DELETE" });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(
@@ -593,7 +594,7 @@ export function DirectorWorkspace() {
     try {
       const sid = await ensureSession();
       pushMessage({ role: "user", text: `Seed: ${seedPrompt}` });
-      const res = await fetch("/api/seed", {
+      const res = await authFetch("/api/seed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -679,7 +680,7 @@ export function DirectorWorkspace() {
           ? `[style transfer] ${motionPrompt}`
           : motionPrompt,
       });
-      const res = await fetch("/api/video", {
+      const res = await authFetch("/api/video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -739,7 +740,7 @@ export function DirectorWorkspace() {
         role: "user",
         text: attachedSwap ? `[element swap] ${instruction}` : instruction,
       });
-      const res = await fetch("/api/edit", {
+      const res = await authFetch("/api/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

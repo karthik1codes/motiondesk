@@ -9,8 +9,7 @@
     "providers": {
       "googleSignIn": {
         "oAuthBrandDisplayName": "SignDesk",
-        "supportEmail": "noreply@deepmind-2a4e2.firebaseapp.com",
-        "authorizedRedirectUris": ["http://localhost"]
+        "supportEmail": "noreply@deepmind-2a4e2.firebaseapp.com"
       }
     }
   }

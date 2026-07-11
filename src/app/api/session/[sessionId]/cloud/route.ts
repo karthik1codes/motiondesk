@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import { archiveSessionMeta } from "@/lib/cloud-archive";
 import {
   FIREBASE_PROJECT_ID,
@@ -18,6 +19,9 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ sessionId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId } = await ctx.params;
   const session = getSession(sessionId);
   if (!session) {
@@ -75,9 +79,12 @@ export async function POST(
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ sessionId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId } = await ctx.params;
   return NextResponse.json({
     sessionId,

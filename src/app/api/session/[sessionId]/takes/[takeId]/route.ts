@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import { deleteTakeFromCloud } from "@/lib/cloud-archive";
 import { formatApiError, httpStatusFromError } from "@/lib/errors";
 import {
@@ -12,9 +13,12 @@ export const runtime = "nodejs";
 
 /** GET — load one take’s video bytes for the editor. */
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ sessionId: string; takeId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId, takeId } = await ctx.params;
   const session = getSession(sessionId);
   if (!session) {
@@ -37,10 +41,13 @@ export async function GET(
  * (Storage blobs under turns/{takeId}/ and Firestore turns/events).
  */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ sessionId: string; takeId: string }> },
 ) {
   try {
+    const auth = await requireSignedIn(req);
+    if (isAuthError(auth)) return auth;
+
     const { sessionId, takeId } = await ctx.params;
     const session = getSession(sessionId);
     if (!session) {

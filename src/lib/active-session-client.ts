@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/auth-fetch";
+
 /** Auth-aware helpers for the server-side active session pointer. */
 
 export async function fetchServerActiveSession(
@@ -8,8 +10,7 @@ export async function fetchServerActiveSession(
   const token = await getIdToken();
   if (!token) return null;
   try {
-    const res = await fetch("/api/me/active-session", {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await authFetch("/api/me/active-session", {
       cache: "no-store",
     });
     if (res.status === 401) return null;
@@ -29,12 +30,9 @@ export async function pushServerActiveSession(
   const token = await getIdToken();
   if (!token) return;
   try {
-    await fetch("/api/me/active-session", {
+    await authFetch("/api/me/active-session", {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ activeSessionId: sessionId }),
     });
   } catch {
@@ -48,9 +46,8 @@ export async function clearServerActiveSession(
   const token = await getIdToken();
   if (!token) return;
   try {
-    await fetch("/api/me/active-session", {
+    await authFetch("/api/me/active-session", {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
     });
   } catch {
     /* optional */

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -16,6 +17,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
+import { setAuthTokenGetter } from "@/lib/auth-fetch";
 import { getFirebaseAuth, isFirebaseClientConfigured } from "@/lib/firebase-client";
 
 type AuthContextValue = {
@@ -77,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
   }, [user]);
+
+  useLayoutEffect(() => {
+    setAuthTokenGetter(() => getIdToken());
+    return () => setAuthTokenGetter(null);
+  }, [getIdToken]);
 
   const value = useMemo(
     () => ({

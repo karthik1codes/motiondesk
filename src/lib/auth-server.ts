@@ -1,5 +1,6 @@
 import { getAuth } from "firebase-admin/auth";
-import { getFirebaseApp, isCloudArchiveEnabled } from "@/lib/firebase-admin";
+import { NextResponse } from "next/server";
+import { getFirebaseApp } from "@/lib/firebase-admin";
 
 export type VerifiedUser = {
   uid: string;
@@ -9,13 +10,11 @@ export type VerifiedUser = {
 
 /**
  * Verify `Authorization: Bearer <Firebase ID token>`.
- * Returns null when missing/invalid (caller decides 401 vs anonymous fallback).
+ * Returns null when missing/invalid.
  */
 export async function verifyBearerToken(
   request: Request,
 ): Promise<VerifiedUser | null> {
-  if (!isCloudArchiveEnabled()) return null;
-
   const header = request.headers.get("authorization") || "";
   const match = /^Bearer\s+(.+)$/i.exec(header.trim());
   if (!match) return null;
@@ -39,4 +38,21 @@ export function requireUser(user: VerifiedUser | null): VerifiedUser {
     throw err;
   }
   return user;
+}
+
+/** 401 when the request has no valid Firebase ID token. */
+export async function requireSignedIn(
+  request: Request,
+): Promise<VerifiedUser | NextResponse> {
+  const user = await verifyBearerToken(request);
+  if (!user) {
+    return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  }
+  return user;
+}
+
+export function isAuthError(
+  value: VerifiedUser | NextResponse,
+): value is NextResponse {
+  return value instanceof NextResponse;
 }

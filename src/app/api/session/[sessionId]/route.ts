@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import {
   deleteSessionFromCloud,
   hydrateSessionFromCloud,
@@ -16,6 +17,9 @@ export async function GET(
   req: Request,
   ctx: { params: Promise<{ sessionId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId } = await ctx.params;
   let session;
   try {
@@ -72,9 +76,12 @@ export async function GET(
 
 /** DELETE — remove session locally and from Firebase (History right-click). */
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ sessionId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId } = await ctx.params;
   try {
     deleteSession(sessionId);

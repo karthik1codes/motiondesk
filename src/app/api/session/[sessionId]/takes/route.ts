@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import { formatApiError, httpStatusFromError } from "@/lib/errors";
 import { runUploadTake } from "@/lib/orchestrator";
 import { getSession } from "@/lib/session";
@@ -10,9 +11,12 @@ export const maxDuration = 120;
 
 /** GET — list video takes for a director session (no base64 payloads). */
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ sessionId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId } = await ctx.params;
   const session = getSession(sessionId);
   if (!session) {
@@ -35,6 +39,9 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ sessionId: string }> },
 ) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { sessionId } = await ctx.params;
   try {
     const body = (await req.json()) as {

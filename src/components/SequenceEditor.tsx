@@ -25,6 +25,7 @@ import {
   pushServerActiveSession,
 } from "@/lib/active-session-client";
 import { useAuth } from "@/lib/auth-context";
+import { authFetch } from "@/lib/auth-fetch";
 import {
   LAST_SESSION_KEY,
   createMergedShot,
@@ -175,7 +176,7 @@ export function SequenceEditor() {
   );
 
   const refreshTakes = useCallback(async (sid: string) => {
-    const res = await fetch(`/api/session/${sid}/takes`);
+    const res = await authFetch(`/api/session/${sid}/takes`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to load takes");
     if (data.aspectRatio === "16:9" || data.aspectRatio === "9:16") {
@@ -192,7 +193,7 @@ export function SequenceEditor() {
 
       if (!opts?.quiet) beginBusy("load", "Loading take…");
       try {
-        const res = await fetch(`/api/session/${sid}/takes/${takeId}`);
+        const res = await authFetch(`/api/session/${sid}/takes/${takeId}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to load take");
         const take = data.take as VideoTake;
@@ -325,7 +326,7 @@ export function SequenceEditor() {
 
       beginBusy("load", "Opening session…");
       try {
-        const res = await fetch(`/api/session/${sid}`);
+        const res = await authFetch(`/api/session/${sid}`);
         const data = await res.json();
         if (cancelled || gen !== loadGenRef.current) return;
         if (!res.ok) {
@@ -344,7 +345,7 @@ export function SequenceEditor() {
           setAspectRatio(data.aspectRatio);
         }
         rememberSessionInHistory(data.sessionId);
-        void fetch(`/api/session/${data.sessionId}/cloud`, {
+        void authFetch(`/api/session/${data.sessionId}/cloud`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
@@ -401,7 +402,7 @@ export function SequenceEditor() {
     );
     // Mirror sequence order to Firebase (deepmind-2a4e2) when archive is enabled.
     const t = window.setTimeout(() => {
-      void fetch(`/api/session/${sessionId}/cloud`, {
+      void authFetch(`/api/session/${sessionId}/cloud`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sequence }),
@@ -467,7 +468,7 @@ export function SequenceEditor() {
       setMergeSelection([]);
       setActiveShotKey(shot.key);
 
-      const res = await fetch(`/api/session/${sessionId}/merge`, {
+      const res = await authFetch(`/api/session/${sessionId}/merge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ takeIds: ids }),
@@ -532,7 +533,7 @@ export function SequenceEditor() {
       setMergeSelection([]);
       setActiveShotKey(shot.key);
 
-      const res = await fetch(`/api/session/${sessionId}/merge`, {
+      const res = await authFetch(`/api/session/${sessionId}/merge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ takeIds: ids }),
@@ -588,7 +589,7 @@ export function SequenceEditor() {
     setError(null);
     try {
       for (const takeId of unique) {
-        const res = await fetch(`/api/session/${sessionId}/takes/${takeId}`, {
+        const res = await authFetch(`/api/session/${sessionId}/takes/${takeId}`, {
           method: "DELETE",
         });
         const data = await res.json();
@@ -671,7 +672,7 @@ export function SequenceEditor() {
     setError(null);
     beginBusy("export", "Merging on server with ffmpeg…");
     try {
-      const res = await fetch(`/api/session/${sessionId}/merge`, {
+      const res = await authFetch(`/api/session/${sessionId}/merge`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ takeIds: ids }),
@@ -801,7 +802,7 @@ export function SequenceEditor() {
         const mimeMatch = /^data:([^;]+)/.exec(previewUrl);
         const mimeType = mimeMatch?.[1] ?? "video/mp4";
 
-        const res = await fetch("/api/edit", {
+        const res = await authFetch("/api/edit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -850,7 +851,7 @@ export function SequenceEditor() {
         const mimeMatch = /^data:([^;]+)/.exec(take.videoUrl);
         const mimeType = mimeMatch?.[1] ?? "video/mp4";
 
-        const res = await fetch("/api/edit", {
+        const res = await authFetch("/api/edit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -879,7 +880,7 @@ export function SequenceEditor() {
     beginBusy("edit", "Omni Flash editing selected take…");
     setError(null);
     try {
-      const res = await fetch("/api/edit", {
+      const res = await authFetch("/api/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -926,7 +927,7 @@ export function SequenceEditor() {
             ...buf.subarray(i, Math.min(i + chunk, buf.length)),
           );
         }
-        const res = await fetch(`/api/session/${sessionId}/takes`, {
+        const res = await authFetch(`/api/session/${sessionId}/takes`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

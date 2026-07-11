@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import { formatApiError, httpStatusFromError } from "@/lib/errors";
 import { runEdit, runEditUploaded } from "@/lib/orchestrator";
 import { summarizeSession } from "@/lib/session";
@@ -14,6 +15,9 @@ export const maxDuration = 300;
  *   and start a new Omni edit thread (≤ ~10s input).
  */
 export async function POST(req: Request) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = (await req.json()) as {
       instruction?: string;

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthError, requireSignedIn } from "@/lib/auth-server";
 import { formatApiError, httpStatusFromError } from "@/lib/errors";
 import { runGenerate } from "@/lib/orchestrator";
 import { summarizeSession } from "@/lib/session";
@@ -12,6 +13,9 @@ export const maxDuration = 300;
  * Prompt may be omitted if a seed exists; Gemini 3 Flash will draft one.
  */
 export async function POST(req: Request) {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   try {
     const body = (await req.json()) as {
       prompt?: string;
