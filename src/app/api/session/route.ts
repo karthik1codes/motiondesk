@@ -13,10 +13,10 @@ export const maxDuration = 60;
 
 /** GET — list sessions archived in Firebase (for History sidebar). */
 export async function GET(req: Request) {
-  const auth = await requireSignedIn(req);
-  if (isAuthError(auth)) return auth;
-
   try {
+    const auth = await requireSignedIn(req);
+    if (isAuthError(auth)) return auth;
+
     const archiveEnabled = isCloudArchiveEnabled();
     const sessions = archiveEnabled ? await listCloudSessions(24) : [];
     return NextResponse.json({
@@ -32,10 +32,10 @@ export async function GET(req: Request) {
 
 /** POST — create a new director session */
 export async function POST(req: Request) {
-  const auth = await requireSignedIn(req);
-  if (isAuthError(auth)) return auth;
-
   try {
+    const auth = await requireSignedIn(req);
+    if (isAuthError(auth)) return auth;
+
     const body = (await req.json().catch(() => ({}))) as {
       aspectRatio?: AspectRatio;
     };

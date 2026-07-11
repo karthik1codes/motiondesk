@@ -22,15 +22,25 @@ function cloudDisabled() {
 
 /** GET — current user's server-side active session id. */
 export async function GET(request: Request) {
-  if (!isCloudArchiveEnabled()) return cloudDisabled();
-  const user = await verifyBearerToken(request);
-  if (!user) return unauthorized();
+  try {
+    if (!isCloudArchiveEnabled()) return cloudDisabled();
+    const user = await verifyBearerToken(request);
+    if (!user) return unauthorized();
 
-  const activeSessionId = await getUserActiveSessionId(user.uid);
-  return NextResponse.json({
-    uid: user.uid,
-    activeSessionId,
-  });
+    const activeSessionId = await getUserActiveSessionId(user.uid);
+    return NextResponse.json({
+      uid: user.uid,
+      activeSessionId,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error:
+          e instanceof Error ? e.message : "Failed to read active session",
+      },
+      { status: 500 },
+    );
+  }
 }
 
 /** PUT — set active session for this user (cross-device resume pointer). */

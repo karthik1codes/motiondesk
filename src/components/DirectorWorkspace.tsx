@@ -18,7 +18,7 @@ import {
   pushServerActiveSession,
 } from "@/lib/active-session-client";
 import { useAuth } from "@/lib/auth-context";
-import { authFetch } from "@/lib/auth-fetch";
+import { authFetch, readApiJson } from "@/lib/auth-fetch";
 import { formatApiError } from "@/lib/errors";
 import {
   LAST_SESSION_KEY,
@@ -411,9 +411,12 @@ export function DirectorWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aspectRatio }),
       });
-      const data = await res.json();
+      const data = await readApiJson<{
+        error?: string;
+        session: SessionSummary;
+      }>(res);
       if (!res.ok) throw new Error(data.error ?? "Failed to create session");
-      const id = (data.session as SessionSummary).id;
+      const id = data.session.id;
       bindSharedSession(id);
       const url = new URL(window.location.href);
       url.searchParams.set("session", id);
@@ -521,9 +524,12 @@ export function DirectorWorkspace() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aspectRatio }),
     });
-    const data = await res.json();
+    const data = await readApiJson<{
+      error?: string;
+      session: SessionSummary;
+    }>(res);
     if (!res.ok) throw new Error(data.error ?? "Failed to create session");
-    const id = (data.session as SessionSummary).id;
+    const id = data.session.id;
     bindSharedSession(id);
     return id;
   }, [aspectRatio, bindSharedSession, getIdToken, sessionId]);
@@ -603,7 +609,16 @@ export function DirectorWorkspace() {
           sessionId: sid,
         }),
       });
-      const data = await res.json();
+      const data = await readApiJson<{
+        error?: string;
+        sessionId: string;
+        image: { mimeType: string; data: string };
+        motionPrompt?: string;
+        plannedEdits?: unknown[];
+        latencyMs: number;
+        model: string;
+        promptModel?: string;
+      }>(res);
       if (!res.ok) throw new Error(data.error ?? "Seed failed");
       bindSharedSession(data.sessionId);
       setSeedUrl(toDataUrl(data.image.mimeType, data.image.data));
@@ -698,7 +713,14 @@ export function DirectorWorkspace() {
             : {}),
         }),
       });
-      const data = await res.json();
+      const data = await readApiJson<{
+        error?: string;
+        sessionId: string;
+        interactionId: string;
+        video: { mimeType: string; data: string };
+        latencyMs: number;
+        model: string;
+      }>(res);
       if (!res.ok) throw new Error(data.error ?? "Video generation failed");
       bindSharedSession(data.sessionId);
       setInteractionId(data.interactionId);
@@ -750,7 +772,13 @@ export function DirectorWorkspace() {
           ...(images ? { images } : {}),
         }),
       });
-      const data = await res.json();
+      const data = await readApiJson<{
+        error?: string;
+        interactionId: string;
+        video: { mimeType: string; data: string };
+        latencyMs: number;
+        model: string;
+      }>(res);
       if (!res.ok) throw new Error(data.error ?? "Edit failed");
       setInteractionId(data.interactionId);
       setVideoUrl(toDataUrl(data.video.mimeType, data.video.data));

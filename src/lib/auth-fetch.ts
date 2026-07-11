@@ -32,3 +32,32 @@ export async function authFetch(
   }
   return fetch(input, { ...init, headers });
 }
+
+/**
+ * Parse an API response as JSON. When the server returns an HTML error page
+ * (uncaught serverless crash, 502, etc.), surface a clear message instead of
+ * `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.
+ */
+export async function readApiJson<T = Record<string, unknown>>(
+  res: Response,
+): Promise<T> {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error(
+      res.ok
+        ? "Empty response from server"
+        : `Request failed (${res.status})`,
+    );
+  }
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    const looksHtml = trimmed.startsWith("<!") || trimmed.startsWith("<html");
+    throw new Error(
+      looksHtml
+        ? `Server returned an HTML error page instead of JSON (${res.status}). Check Vercel function logs — often auth/credentials misconfiguration.`
+        : `Invalid JSON from server (${res.status}): ${trimmed.slice(0, 160)}`,
+    );
+  }
+}

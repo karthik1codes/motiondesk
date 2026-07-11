@@ -11,6 +11,8 @@ export type VerifiedUser = {
 /**
  * Verify `Authorization: Bearer <Firebase ID token>`.
  * Returns null when missing/invalid.
+ * Never throws — Firebase Admin / jwks-rsa failures must stay JSON 401s,
+ * not HTML 500 pages that break `res.json()` on the client.
  */
 export async function verifyBearerToken(
   request: Request,
@@ -26,7 +28,11 @@ export async function verifyBearerToken(
       email: decoded.email,
       name: decoded.name,
     };
-  } catch {
+  } catch (err) {
+    console.error(
+      "[auth] verifyIdToken failed:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
