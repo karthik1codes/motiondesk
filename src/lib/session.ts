@@ -1,18 +1,26 @@
 import { randomUUID } from "crypto";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import type { AspectRatio, DirectorSession, VideoTurn } from "./types";
 
 /**
- * Session store: in-memory cache backed by `.data/sessions/*.json`
- * so director sessions (and generated videos) survive server restarts.
+ * Session store: in-memory cache backed by JSON files so sessions survive
+ * local restarts. On Vercel/Lambda the app root is read-only — use /tmp.
+ * Disk writes are best-effort; memory remains the source of truth per instance.
  */
 const sessions = new Map<string, DirectorSession>();
 
-const DATA_DIR = path.join(process.cwd(), ".data", "sessions");
+function dataDir(): string {
+  const root =
+    process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+      ? path.join(os.tmpdir(), "motiondesk")
+      : path.join(process.cwd(), ".data");
+  return path.join(root, "sessions");
+}
 
 function ensureDataDir() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(dataDir(), { recursive: true });
 }
 
 function sessionFilePath(id: string) {
@@ -20,12 +28,16 @@ function sessionFilePath(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
     throw new Error("Invalid session id");
   }
-  return path.join(DATA_DIR, `${id}.json`);
+  return path.join(dataDir(), `${id}.json`);
 }
 
 function persistSession(session: DirectorSession) {
-  ensureDataDir();
-  fs.writeFileSync(sessionFilePath(session.id), JSON.stringify(session), "utf8");
+  try {
+    ensureDataDir();
+    fs.writeFileSync(sessionFilePath(session.id), JSON.stringify(session), "utf8");
+  } catch (err) {
+    console.warn("[session] disk persist skipped:", err);
+  }
 }
 
 function loadSessionFromDisk(id: string): DirectorSession | undefined {

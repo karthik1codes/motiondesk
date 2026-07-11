@@ -167,11 +167,19 @@ export async function mergeSessionTakes(opts: {
     let persisted: string | undefined;
 
     if (opts.persist !== false) {
-      const mergesDir = path.join(process.cwd(), ".data", "merges", sessionId);
-      fs.mkdirSync(mergesDir, { recursive: true });
-      const fileName = `merged-${Date.now()}-${unique.length}clips.mp4`;
-      persisted = path.join(mergesDir, fileName);
-      fs.copyFileSync(outPath, persisted);
+      try {
+        const mergeRoot =
+          process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+            ? path.join(os.tmpdir(), "motiondesk", "merges")
+            : path.join(process.cwd(), ".data", "merges");
+        const mergesDir = path.join(mergeRoot, sessionId);
+        fs.mkdirSync(mergesDir, { recursive: true });
+        const fileName = `merged-${Date.now()}-${unique.length}clips.mp4`;
+        persisted = path.join(mergesDir, fileName);
+        fs.copyFileSync(outPath, persisted);
+      } catch (err) {
+        console.warn("[merge] disk persist skipped:", err);
+      }
     }
 
     return {
