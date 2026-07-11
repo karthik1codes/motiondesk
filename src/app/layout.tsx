@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { AuthProvider } from "@/lib/auth-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { productTheme } from "@/lib/theme";
@@ -23,7 +24,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("dark font-sans antialiased")}>
       <body className="min-h-svh max-w-[100vw] overflow-x-hidden font-sans antialiased">
-        <TooltipProvider>{children}</TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -9,6 +9,8 @@ import {
   FilmIcon,
   GalleryVerticalEndIcon,
   HistoryIcon,
+  LogInIcon,
+  LogOutIcon,
   PlusIcon,
   Settings2Icon,
   StarIcon,
@@ -17,9 +19,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import type { SessionHistoryEntry } from "@/lib/takes";
+import { useAuth } from "@/lib/auth-context";
 import { productTheme } from "@/lib/theme";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Collapsible,
   CollapsibleContent,
@@ -77,6 +81,10 @@ export function AppSidebar({
   disabled,
 }: Props) {
   const pathname = usePathname();
+  const { user, loading: authLoading, configured, signInWithGoogle, signOut } =
+    useAuth();
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const onDirector = pathname === "/";
   const onEditor = pathname.startsWith("/editor");
   const sharedSessionHref = sessionId
@@ -85,6 +93,41 @@ export function AppSidebar({
   const sharedEditorHref = sessionId
     ? `/editor?session=${encodeURIComponent(sessionId)}`
     : "/editor";
+
+  const displayName = user?.displayName || user?.email || "Tutor";
+  const initials =
+    (user?.displayName || user?.email || "SD")
+      .split(/\s+|@/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "SD";
+
+  const handleSignIn = async () => {
+    setAuthError(null);
+    setAuthBusy(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      setAuthError(
+        e instanceof Error ? e.message : "Could not sign in with Google",
+      );
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setAuthError(null);
+    setAuthBusy(true);
+    try {
+      await signOut();
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Could not sign out");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   return (
     <Sidebar collapsible="offcanvas" variant="sidebar">
@@ -324,16 +367,27 @@ export function AppSidebar({
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar size="sm" className="rounded-lg">
+                    {user?.photoURL ? (
+                      <AvatarImage src={user.photoURL} alt={displayName} />
+                    ) : null}
                     <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                      MD
+                      {initials}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Tutor</span>
+                    <span className="truncate font-semibold">
+                      {authLoading
+                        ? "Checking…"
+                        : user
+                          ? displayName
+                          : "Sign in"}
+                    </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {sessionId
                         ? `Session ${sessionId.slice(0, 8)}…`
-                        : "local session"}
+                        : user
+                          ? "Syncing active session"
+                          : "Local only"}
                     </span>
                   </div>
                   <ChevronsUpDownIcon className="ml-auto size-4" />
@@ -348,10 +402,17 @@ export function AppSidebar({
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar size="sm" className="rounded-lg">
-                      <AvatarFallback className="rounded-lg">MD</AvatarFallback>
+                      {user?.photoURL ? (
+                        <AvatarImage src={user.photoURL} alt={displayName} />
+                      ) : null}
+                      <AvatarFallback className="rounded-lg">
+                        {initials}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">Tutor</span>
+                      <span className="truncate font-semibold">
+                        {user ? displayName : "Guest"}
+                      </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {sessionId
                           ? `Session ${sessionId.slice(0, 8)}…`
@@ -360,6 +421,38 @@ export function AppSidebar({
                     </div>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {configured && !user ? (
+                  <DropdownMenuItem
+                    disabled={authBusy || authLoading}
+                    onClick={() => void handleSignIn()}
+                  >
+                    <LogInIcon />
+                    Sign in with Google
+                  </DropdownMenuItem>
+                ) : null}
+                {user ? (
+                  <DropdownMenuItem
+                    disabled={authBusy}
+                    onClick={() => void handleSignOut()}
+                  >
+                    <LogOutIcon />
+                    Sign out
+                  </DropdownMenuItem>
+                ) : null}
+                {authError ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="max-w-56 whitespace-normal text-xs font-normal text-destructive">
+                      {authError}
+                    </DropdownMenuLabel>
+                  </>
+                ) : null}
+                {!configured ? (
+                  <DropdownMenuLabel className="max-w-56 whitespace-normal text-xs font-normal text-muted-foreground">
+                    Firebase Auth is not configured.
+                  </DropdownMenuLabel>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

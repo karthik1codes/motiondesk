@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import type { ChatMessage } from "@/components/DirectorChat";
 import { DirectorPipelinePanel } from "@/components/DirectorPipelinePanel";
@@ -12,6 +12,12 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import {
+  clearServerActiveSession,
+  fetchServerActiveSession,
+  pushServerActiveSession,
+} from "@/lib/active-session-client";
+import { useAuth } from "@/lib/auth-context";
 import { formatApiError } from "@/lib/errors";
 import {
   LAST_SESSION_KEY,
@@ -117,6 +123,8 @@ function messagesFromTurns(turns: SessionTurnSummary[] | undefined): ChatMessage
 
 export function DirectorWorkspace() {
   const router = useRouter();
+  const { user, loading: authLoading, getIdToken } = useAuth();
+  const resumeBootstrappedRef = useRef(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [interactionId, setInteractionId] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
@@ -191,7 +199,7 @@ export function DirectorWorkspace() {
     setSessionHistory(rememberSessionInHistory(id));
   }, []);
 
-  /** One shared session id for Tutor + Sequence, mirrored to Firebase. */
+  /** One shared session id for Tutor + Sequence, mirrored to Firebase + user pointer. */
   const bindSharedSession = useCallback(
     (id: string) => {
       rememberSession(id);
@@ -202,8 +210,9 @@ export function DirectorWorkspace() {
       }).catch(() => {
         /* cloud optional — local shared session still works */
       });
+      void pushServerActiveSession(id, getIdToken);
     },
-    [rememberSession],
+    [getIdToken, rememberSession],
   );
 
   useEffect(() => {
@@ -306,14 +315,47 @@ export function DirectorWorkspace() {
     [bindSharedSession],
   );
 
-  /** Resume the same persisted session after refresh / editor round-trip. */
+  /**
+   * Resume priority: URL ?session= → server activeSessionId (signed-in) → localStorage.
+   * Waits for Auth so phone/laptop share the same user pointer instead of minting UUIDs.
+   */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get("session");
-    const saved = fromQuery || window.localStorage.getItem(LAST_SESSION_KEY);
-    if (!saved) return;
+    if (authLoading) return;
     let cancelled = false;
     (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("session");
+      const fromStore = window.localStorage.getItem(LAST_SESSION_KEY);
+
+      // After first resolve: keep local work, but sync pointer on sign-in.
+      if (resumeBootstrappedRef.current) {
+        if (user && sessionId) {
+          await pushServerActiveSession(sessionId, getIdToken);
+          return;
+        }
+        if (user && !sessionId && !fromQuery) {
+          const fromServer = await fetchServerActiveSession(getIdToken);
+          if (!fromServer || cancelled) return;
+          try {
+            const res = await fetch(`/api/session/${fromServer}?includeMedia=1`);
+            if (!res.ok || cancelled) return;
+            const data = (await res.json()) as SessionResumePayload;
+            if (cancelled) return;
+            applyResumedSession(data);
+          } catch {
+            /* ignore */
+          }
+        }
+        return;
+      }
+
+      const fromServer = user
+        ? await fetchServerActiveSession(getIdToken)
+        : null;
+      const saved = fromQuery || fromServer || fromStore;
+      resumeBootstrappedRef.current = true;
+      if (!saved || cancelled) return;
+
       try {
         const res = await fetch(`/api/session/${saved}?includeMedia=1`);
         if (!res.ok) {
@@ -330,7 +372,7 @@ export function DirectorWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [applyResumedSession]);
+  }, [applyResumedSession, authLoading, getIdToken, sessionId, user]);
 
   const stageLabel = useMemo(() => {
     if (videoUrl) return "Omni Flash · video";
@@ -360,6 +402,7 @@ export function DirectorWorkspace() {
     beginBusy("session", "Starting a new tutor session…");
     try {
       clearActiveSessionPointer();
+      void clearServerActiveSession(getIdToken);
       resetWorkspaceLocalState();
       setSessionId(null);
       const res = await fetch("/api/session", {
@@ -391,6 +434,7 @@ export function DirectorWorkspace() {
     busyJobs.session,
     endBusy,
     fail,
+    getIdToken,
     pushMessage,
     resetWorkspaceLocalState,
   ]);
@@ -452,10 +496,13 @@ export function DirectorWorkspace() {
       typeof window !== "undefined"
         ? window.localStorage.getItem(LAST_SESSION_KEY)
         : null;
-    // Prefer the in-memory Tutor session so Sequence never forks a second id.
-    const candidate = sessionId || fromQuery || fromStore;
+    const fromServer = await fetchServerActiveSession(getIdToken);
+    // Prefer in-memory → URL → server (cross-device) → localStorage.
+    const candidates = [sessionId, fromQuery, fromServer, fromStore].filter(
+      (id): id is string => Boolean(id),
+    );
 
-    if (candidate) {
+    for (const candidate of candidates) {
       try {
         const check = await fetch(`/api/session/${candidate}`);
         if (check.ok) {
@@ -464,7 +511,7 @@ export function DirectorWorkspace() {
         }
         setSessionHistory(forgetSessionFromHistory(candidate));
       } catch {
-        /* fall through and create a fresh session */
+        /* try next candidate */
       }
     }
 
@@ -478,7 +525,7 @@ export function DirectorWorkspace() {
     const id = (data.session as SessionSummary).id;
     bindSharedSession(id);
     return id;
-  }, [aspectRatio, bindSharedSession, sessionId]);
+  }, [aspectRatio, bindSharedSession, getIdToken, sessionId]);
 
   const openSequenceEditor = async () => {
     setError(null);

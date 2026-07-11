@@ -47,3 +47,6 @@ next-env.d.ts
 
 # persisted director sessions (local demo)
 /.data
+
+firebase-debug.log
+*-debug.log

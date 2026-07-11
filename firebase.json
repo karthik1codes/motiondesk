@@ -4,5 +4,14 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "SignDesk",
+        "supportEmail": "noreply@deepmind-2a4e2.firebaseapp.com",
+        "authorizedRedirectUris": ["http://localhost"]
+      }
+    }
   }
 }

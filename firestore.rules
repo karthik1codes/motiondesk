@@ -1,8 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Server Admin SDK bypasses these rules.
-    // Deny all client access until Auth is added.
+    // Client SDK stays locked down. Active session + archive use Admin SDK.
+    // users/{uid}.activeSessionId is the cross-device "current session" pointer.
     match /{document=**} {
       allow read, write: if false;
     }

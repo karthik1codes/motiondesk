@@ -21,6 +21,11 @@ import {
 } from "@/components/ui/context-menu";
 import { formatApiError } from "@/lib/errors";
 import {
+  fetchServerActiveSession,
+  pushServerActiveSession,
+} from "@/lib/active-session-client";
+import { useAuth } from "@/lib/auth-context";
+import {
   LAST_SESSION_KEY,
   createMergedShot,
   flattenSequenceTakeIds,
@@ -55,6 +60,7 @@ type LoadedTake = TakeSummary & {
 export function SequenceEditor() {
   const searchParams = useSearchParams();
   const sessionFromUrl = searchParams.get("session");
+  const { user, loading: authLoading, getIdToken } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<
     ReturnType<typeof readSessionHistory>
@@ -286,6 +292,8 @@ export function SequenceEditor() {
   );
 
   useEffect(() => {
+    if (authLoading) return;
+
     const fromQuery =
       sessionFromUrl ||
       (typeof window !== "undefined"
@@ -299,17 +307,22 @@ export function SequenceEditor() {
       typeof window !== "undefined"
         ? readSessionHistory()[0]?.id ?? null
         : null;
-    const sid = fromQuery || fromStore || fromHistory;
-    if (!sid) {
-      setSessionId(null);
-      setRecentSessions(readSessionHistory());
-      setBootstrapped(true);
-      return;
-    }
 
     const gen = ++loadGenRef.current;
     let cancelled = false;
     (async () => {
+      const fromServer = user
+        ? await fetchServerActiveSession(getIdToken)
+        : null;
+      // Prefer URL → server active (cross-device) → localStorage → history.
+      const sid = fromQuery || fromServer || fromStore || fromHistory;
+      if (!sid) {
+        setSessionId(null);
+        setRecentSessions(readSessionHistory());
+        setBootstrapped(true);
+        return;
+      }
+
       beginBusy("load", "Opening session…");
       try {
         const res = await fetch(`/api/session/${sid}`);
@@ -338,6 +351,7 @@ export function SequenceEditor() {
         }).catch(() => {
           /* cloud optional */
         });
+        void pushServerActiveSession(data.sessionId, getIdToken);
         // Keep the URL pinned to this session for share/reload.
         const url = new URL(window.location.href);
         url.searchParams.set("session", data.sessionId);
@@ -369,7 +383,15 @@ export function SequenceEditor() {
     return () => {
       cancelled = true;
     };
-  }, [sessionFromUrl, refreshTakes, beginBusy, endBusy]);
+  }, [
+    sessionFromUrl,
+    refreshTakes,
+    beginBusy,
+    endBusy,
+    authLoading,
+    user,
+    getIdToken,
+  ]);
 
   useEffect(() => {
     if (!sessionId) return;
