@@ -4,7 +4,8 @@ import {
   getDb,
   isCloudArchiveEnabled,
 } from "./firebase-admin";
-import type { DirectorSession, MediaRef, VideoTurn } from "./types";
+import { saveSession } from "./session";
+import type { AspectRatio, DirectorSession, MediaRef, VideoTurn } from "./types";
 
 export type CloudMediaRef = {
   bucket: string;
@@ -308,3 +309,185 @@ export async function deleteTakeFromCloud(opts: {
     throw err;
   }
 }
+
+export type CloudSessionSummary = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  turnCount: number;
+  aspectRatio: AspectRatio | null;
+  seedPrompt: string | null;
+  motionPrompt: string | null;
+  latestInteractionId: string | null;
+  source: "cloud";
+};
+
+type CloudMediaDoc = {
+  path?: string;
+  mimeType?: string;
+  gsUri?: string;
+};
+
+async function downloadStorageToMedia(
+  objectPath: string,
+  fallbackMime?: string,
+): Promise<{ mimeType: string; data: string } | null> {
+  try {
+    const file = getBucket().file(objectPath);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+    const [buf] = await file.download();
+    const [meta] = await file.getMetadata();
+    const mimeType =
+      (typeof meta.contentType === "string" && meta.contentType) ||
+      fallbackMime ||
+      "application/octet-stream";
+    return { mimeType, data: buf.toString("base64") };
+  } catch (err) {
+    console.error("[cloud-archive] download failed", {
+      objectPath,
+      err: err instanceof Error ? err.message : err,
+    });
+    return null;
+  }
+}
+
+/** List archived sessions from Firestore (newest first). */
+export async function listCloudSessions(
+  limit = 24,
+): Promise<CloudSessionSummary[]> {
+  if (!isCloudArchiveEnabled()) return [];
+
+  const db = getDb();
+  let snap;
+  try {
+    snap = await db
+      .collection("sessions")
+      .orderBy("updatedAt", "desc")
+      .limit(limit)
+      .get();
+  } catch {
+    // Fallback if updatedAt index/query fails — unsorted scan.
+    snap = await db.collection("sessions").limit(limit).get();
+  }
+
+  const rows: CloudSessionSummary[] = snap.docs.map((doc) => {
+    const d = doc.data() as Record<string, unknown>;
+    const aspect =
+      d.aspectRatio === "16:9" || d.aspectRatio === "9:16"
+        ? (d.aspectRatio as AspectRatio)
+        : null;
+    return {
+      id: String(d.id ?? doc.id),
+      createdAt: String(d.createdAt ?? ""),
+      updatedAt: String(d.updatedAt ?? d.createdAt ?? ""),
+      turnCount: typeof d.turnCount === "number" ? d.turnCount : 0,
+      aspectRatio: aspect,
+      seedPrompt: typeof d.seedPrompt === "string" ? d.seedPrompt : null,
+      motionPrompt: typeof d.motionPrompt === "string" ? d.motionPrompt : null,
+      latestInteractionId:
+        typeof d.latestInteractionId === "string"
+          ? d.latestInteractionId
+          : null,
+      source: "cloud" as const,
+    };
+  });
+
+  rows.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  return rows;
+}
+
+/**
+ * Rebuild a local DirectorSession from Firestore + Storage.
+ * Returns null if the cloud doc is missing or archive is disabled.
+ */
+export async function hydrateSessionFromCloud(
+  sessionId: string,
+): Promise<DirectorSession | null> {
+  if (!isCloudArchiveEnabled()) return null;
+  if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return null;
+
+  const db = getDb();
+  const sessionRef = db.collection("sessions").doc(sessionId);
+  const doc = await sessionRef.get();
+  if (!doc.exists) return null;
+
+  const meta = doc.data() as Record<string, unknown>;
+  const turnsSnap = await sessionRef
+    .collection("turns")
+    .orderBy("createdAt", "asc")
+    .get();
+
+  const turns: VideoTurn[] = [];
+  for (const turnDoc of turnsSnap.docs) {
+    const d = turnDoc.data() as Record<string, unknown>;
+    const kind = String(d.kind ?? "generate") as VideoTurn["kind"];
+    const role = String(d.role ?? "assistant") as VideoTurn["role"];
+    const turn: VideoTurn = {
+      id: String(d.id ?? turnDoc.id),
+      kind,
+      role,
+      text: String(d.text ?? ""),
+      createdAt: String(d.createdAt ?? new Date().toISOString()),
+      interactionId:
+        typeof d.interactionId === "string" ? d.interactionId : undefined,
+      latencyMs: typeof d.latencyMs === "number" ? d.latencyMs : undefined,
+      error: typeof d.error === "string" ? d.error : undefined,
+    };
+
+    const image = d.image as CloudMediaDoc | null | undefined;
+    if (image?.path) {
+      const media = await downloadStorageToMedia(image.path, image.mimeType);
+      if (media) turn.image = media;
+    }
+
+    const video = d.video as CloudMediaDoc | null | undefined;
+    if (video?.path) {
+      const media = await downloadStorageToMedia(video.path, video.mimeType);
+      if (media) turn.video = media;
+    }
+
+    turns.push(turn);
+  }
+
+  const seedTurn = [...turns]
+    .reverse()
+    .find((t) => t.role === "assistant" && t.kind === "seed" && t.image);
+  const videoTurn = [...turns]
+    .reverse()
+    .find(
+      (t) =>
+        t.role === "assistant" &&
+        (t.kind === "generate" || t.kind === "edit" || t.kind === "upload") &&
+        t.video,
+    );
+
+  const aspectRatio: AspectRatio =
+    meta.aspectRatio === "9:16" ? "9:16" : "16:9";
+
+  const session: DirectorSession = {
+    id: sessionId,
+    createdAt: String(meta.createdAt ?? new Date().toISOString()),
+    updatedAt: String(meta.updatedAt ?? new Date().toISOString()),
+    latestInteractionId:
+      typeof meta.latestInteractionId === "string"
+        ? meta.latestInteractionId
+        : (videoTurn?.interactionId ?? null),
+    seedImage: seedTurn?.image ?? null,
+    seedPrompt: typeof meta.seedPrompt === "string" ? meta.seedPrompt : null,
+    motionPrompt:
+      typeof meta.motionPrompt === "string" ? meta.motionPrompt : null,
+    plannedEdits: Array.isArray(meta.plannedEdits)
+      ? meta.plannedEdits.map((e) => String(e))
+      : [],
+    latestVideo: videoTurn?.video
+      ? { mimeType: videoTurn.video.mimeType, data: videoTurn.video.data }
+      : null,
+    turns,
+    aspectRatio,
+  };
+
+  saveSession(session);
+  return session;
+}
+

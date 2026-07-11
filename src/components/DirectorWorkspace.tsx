@@ -15,6 +15,7 @@ import {
 import { formatApiError } from "@/lib/errors";
 import {
   LAST_SESSION_KEY,
+  SESSION_HISTORY_KEY,
   clearActiveSessionPointer,
   forgetSessionFromHistory,
   readSessionHistory,
@@ -192,6 +193,42 @@ export function DirectorWorkspace() {
 
   useEffect(() => {
     setSessionHistory(readSessionHistory());
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/session");
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          sessions?: Array<{ id: string; updatedAt?: string }>;
+          archiveEnabled?: boolean;
+        };
+        if (cancelled || !Array.isArray(data.sessions)) return;
+
+        // Merge cloud ids into browser history so History lists Firebase sessions.
+        let next = readSessionHistory();
+        for (const row of data.sessions) {
+          if (!row?.id) continue;
+          next = [
+            {
+              id: row.id,
+              seenAt: row.updatedAt || new Date().toISOString(),
+            },
+            ...next.filter((e) => e.id !== row.id),
+          ];
+        }
+        next = next.slice(0, 12);
+        window.localStorage.setItem(
+          SESSION_HISTORY_KEY,
+          JSON.stringify(next),
+        );
+        if (!cancelled) setSessionHistory(next);
+      } catch {
+        /* cloud list optional — local history still works */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const resetWorkspaceLocalState = useCallback(() => {
@@ -347,13 +384,13 @@ export function DirectorWorkspace() {
     async (id: string) => {
       if (id === sessionId || busyJobs.session) return;
       setError(null);
-      beginBusy("session", "Switching session…");
+      beginBusy("session", "Switching session (may pull from cloud)…");
       try {
         const res = await fetch(`/api/session/${id}?includeMedia=1`);
         if (!res.ok) {
           setSessionHistory(forgetSessionFromHistory(id));
           setError(
-            `Session ${id.slice(0, 8)}… was not found. It may predate disk persistence — start a new session or pick another id.`,
+            `Session ${id.slice(0, 8)}… was not found locally or in Firebase cloud.`,
           );
           return;
         }
