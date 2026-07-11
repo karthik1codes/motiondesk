@@ -150,7 +150,7 @@ export function DirectorPipelinePanel({
       <div className="shrink-0 space-y-0.5 border-b border-border/60 px-4 py-4">
         <p className="text-xs font-medium text-primary">Pipeline</p>
         <h2 className="text-sm font-semibold leading-tight text-foreground">
-          Direct the shot
+          Tutor the sign
         </h2>
         <p className="text-xs text-muted-foreground">
           Seed → motion → style transfer &amp; element swaps · actions run in
@@ -273,12 +273,13 @@ export function DirectorPipelinePanel({
               3 · Conversational edit
             </h3>
             <p className="text-xs text-muted-foreground">
-              Same Omni model · chips follow the seed + motion shot plan ·{" "}
+              Same Omni model · ASL sign chips swap the action in this clip
+              (same duration — no extension) ·{" "}
               {interactionId ? "thread linked" : "generate a video first"}
             </p>
             <p className="text-xs text-muted-foreground">
-              Attach a still to swap an element (material, prop, backdrop) while
-              Omni keeps lighting and camera consistent.
+              Tap a chip to change the sign, or attach a still for an element
+              swap. Keep lighting and camera consistent.
             </p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 pt-3">
@@ -292,8 +293,8 @@ export function DirectorPipelinePanel({
               placeholder={
                 interactionId
                   ? hasSwap
-                    ? "e.g. Swap the table surface to match this reference…"
-                    : "e.g. Swap the background to dusk…"
+                    ? "e.g. Swap the shirt color to match this reference…"
+                    : 'e.g. Have her sign ASL "thank you" in this same clip…'
                   : "Generate a video to unlock edits"
               }
               footer={

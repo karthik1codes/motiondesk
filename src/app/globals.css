@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  /* Platform UI type — matches MotionDesk sidebar (Source Sans 3). */
+  /* Platform UI type — matches SignDesk sidebar (Source Sans 3). */
   --font-sans: "Source Sans 3", system-ui, sans-serif;
   --font-display: "Source Sans 3", system-ui, sans-serif;
   --font-heading: "Source Sans 3", system-ui, sans-serif;

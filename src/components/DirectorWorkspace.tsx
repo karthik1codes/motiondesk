@@ -129,6 +129,18 @@ export function DirectorWorkspace() {
     ...productTheme.exampleEdits,
   ]);
   const [editText, setEditText] = useState("");
+  /** Always surface ASL sign chips on Edit; Flash plan chips append if new. */
+  const editSuggestions = useMemo(() => {
+    const seen = new Set<string>([...productTheme.exampleEdits] as string[]);
+    const base: string[] = [...productTheme.exampleEdits];
+    for (const chip of plannedEdits) {
+      if (!seen.has(chip)) {
+        seen.add(chip);
+        base.push(chip);
+      }
+    }
+    return base;
+  }, [plannedEdits]);
   const [seedUrl, setSeedUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   /** Style still for Omni reference_to_video (Animate tab). */
@@ -293,7 +305,7 @@ export function DirectorWorkspace() {
   const startNewSession = useCallback(async () => {
     if (busyJobs.session) return;
     setError(null);
-    beginBusy("session", "Starting a new director session…");
+    beginBusy("session", "Starting a new tutor session…");
     try {
       clearActiveSessionPointer();
       resetWorkspaceLocalState();
@@ -693,7 +705,7 @@ export function DirectorWorkspace() {
             editText={editText}
             onEditTextChange={setEditText}
             messages={messages}
-            plannedEdits={plannedEdits}
+            plannedEdits={editSuggestions}
             interactionId={interactionId}
             stylePreviewUrl={styleImage?.previewUrl ?? null}
             onStyleImagePick={(file) => void onStyleImagePick(file)}

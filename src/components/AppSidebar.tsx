@@ -88,7 +88,7 @@ export function AppSidebar({
                       {productTheme.name}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      Director workspace
+                      Tutor workspace
                     </span>
                   </div>
                   <ChevronsUpDownIcon className="ml-auto size-4" />
@@ -117,7 +117,7 @@ export function AppSidebar({
                 <DropdownMenuItem className="gap-2 p-2" asChild>
                   <Link href="/">
                     <ClapperboardIcon className="size-4" />
-                    Director
+                    Tutor
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -156,7 +156,7 @@ export function AppSidebar({
                       <SidebarMenuSubButton asChild isActive={onDirector}>
                         <Link href={sessionId ? `/?session=${sessionId}` : "/"}>
                           <ClapperboardIcon />
-                          <span>Director</span>
+                          <span>Tutor</span>
                         </Link>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
@@ -274,7 +274,7 @@ export function AppSidebar({
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Director</span>
+                    <span className="truncate font-semibold">Tutor</span>
                     <span className="truncate text-xs text-muted-foreground">
                       local session
                     </span>
@@ -294,7 +294,7 @@ export function AppSidebar({
                       <AvatarFallback className="rounded-lg">MD</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">Director</span>
+                      <span className="truncate font-semibold">Tutor</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {sessionId
                           ? `Session ${sessionId.slice(0, 8)}…`

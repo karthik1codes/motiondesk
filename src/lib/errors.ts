@@ -1,3 +1,5 @@
+import { VIDEO_EXTENSION_USER_HINT } from "./prompt-guard";
+
 /**
  * Turn SDK / Google API errors into a short UI-facing string.
  * Messages often look like: `400 {"error":{"message":"…","code":"…"}}`
@@ -14,12 +16,19 @@ export function formatApiError(err: unknown, fallback = "Something went wrong"):
 
   const fromJson = extractGoogleMessage(raw);
   const cleaned = (fromJson ?? raw.replace(/^\d{3}\s+/, "").trim()) || fallback;
-  return withSafetyHint(cleaned);
+  return withUserHints(cleaned);
 }
 
-/** Extra guidance when Google's non-configurable safety filter blocks a request. */
-function withSafetyHint(message: string): string {
+/** Extra guidance for known Omni / Gemini API limitations. */
+function withUserHints(message: string): string {
   const lower = message.toLowerCase();
+  if (
+    lower.includes("video extension") ||
+    (lower.includes("not supported") && lower.includes("extension")) ||
+    lower.includes("interpolation")
+  ) {
+    return `${message} ${VIDEO_EXTENSION_USER_HINT}`;
+  }
   if (
     lower.includes("prohibited content") ||
     lower.includes("usage guidelines") ||

@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
+import { sanitizeOmniPrompt } from "./prompt-guard";
+import { productTheme } from "./theme";
 import type { AspectRatio, MediaRef } from "./types";
 
 export const NB2_LITE =
@@ -35,11 +37,17 @@ export function normalizeBase64(data: string): string {
 
 /**
  * Omni edit prompts work best when short; append consistency cue from the docs.
+ * Also rewrite extension / "continue the clip" phrasing Omni rejects.
  */
 export function normalizeEditInstruction(instruction: string): string {
-  const trimmed = instruction.trim();
-  if (/keep everything else the same/i.test(trimmed)) return trimmed;
-  return `${trimmed} Keep everything else the same.`;
+  const { prompt } = sanitizeOmniPrompt(instruction.trim(), "edit");
+  if (/keep everything else the same/i.test(prompt)) return prompt;
+  return `${prompt} Keep everything else the same.`;
+}
+
+/** Motion / generate prompts — strip extension language Omni classifies as unsupported. */
+export function normalizeGeneratePrompt(prompt: string): string {
+  return sanitizeOmniPrompt(prompt.trim(), "generate").prompt;
 }
 
 type InlinePart = { text: string } | { inlineData: { mimeType: string; data: string } };
@@ -118,12 +126,12 @@ export async function generateMotionPromptFromSeed(opts: {
         parts: [
           {
             text: [
-              "You are a director planning an Omni Flash image-to-video shot.",
+              "You are a tutor planning an Omni Flash image-to-video ASL lesson shot.",
               "From the seed still prompt, produce a JSON object only (no markdown):",
               '{',
               '  "motionPrompt": "string",',
-              '  "plannedEdits": ["string", "string", "string", "string"]',
-              '}',
+              '  "plannedEdits": ["string", "string", "string", "string", "string", "string"]',
+              "}",
               "",
               "motionPrompt rules (Omni Flash):",
               "- 2–4 sentences for image-to-video.",
@@ -133,17 +141,16 @@ export async function generateMotionPromptFromSeed(opts: {
               "- No new people/faces if the seed has none.",
               "- Negatives when useful: No people. No dialogue. No on-screen text.",
               `- Target about ${OMNI_DURATION} of motion.`,
+              "- NEVER ask to extend, lengthen, continue, or append to a video (Omni does not support extension).",
               "",
-              "plannedEdits rules (exactly 4 short Omni edit chips):",
+              "plannedEdits rules (exactly 6 short Omni conversational-edit chips):",
+              "- This product is an ASL tutor: prefer same-clip sign swaps and clarity polish.",
+              "- Include at least 4 ASL sign swaps like: Have her sign ASL \"X\" in this same clip",
+              "- Include 1–2 polish chips (handshape clarity, slower signing, smile, framing).",
               "- Each edit must change ONE thing already in the seed or motionPrompt.",
-              "- Cover this plan in order:",
-              "  1) surface/material from the seed still",
-              "  2) camera move from the motion plan",
-              "  3) subject motion / atmosphere from the motion plan (e.g. steam, fabric, particles)",
-              "  4) lighting / time-of-day from the seed or motion plan",
-              "- Keep each chip under 12 words. Simple Omni style (no long scene rewrites).",
+              "- Keep each chip under 18 words. Simple Omni style (no long scene rewrites).",
               "- Do not invent props, people, or locations that are not in the plan.",
-              "",
+              "- Never suggest extending/lengthening the clip.",
               `Seed still prompt:\n${opts.seedPrompt.trim()}`,
             ].join("\n"),
           },
@@ -160,9 +167,14 @@ export async function generateMotionPromptFromSeed(opts: {
     throw new Error("Gemini 3 Flash returned an empty motion prompt");
   }
 
+  const motion = normalizeGeneratePrompt(parsed.prompt);
+  const plannedEdits = parsed.plannedEdits.map(
+    (chip) => sanitizeOmniPrompt(chip, "edit").prompt,
+  );
+
   return {
-    prompt: parsed.prompt,
-    plannedEdits: parsed.plannedEdits,
+    prompt: motion,
+    plannedEdits,
     latencyMs: Date.now() - started,
     model: GEMINI_FLASH,
   };
@@ -189,11 +201,11 @@ function parseMotionPlan(raw: string): {
       ? data.plannedEdits
           .map((e) => String(e).trim())
           .filter(Boolean)
-          .slice(0, 4)
+          .slice(0, 8)
       : [];
     return {
       prompt,
-      plannedEdits: edits.length === 4 ? edits : fallbackEdits,
+      plannedEdits: edits.length >= 4 ? edits : fallbackEdits,
     };
   } catch {
     return {
@@ -204,12 +216,7 @@ function parseMotionPlan(raw: string): {
 }
 
 /** Used only if Flash returns a malformed plan. */
-const productThemeFallbackEdits = [
-  "Swap the oak table for dark walnut",
-  "Slow the camera push-in a little",
-  "Make the steam thicker and softer",
-  "Warm the morning light to golden hour",
-];
+const productThemeFallbackEdits = [...productTheme.exampleEdits].slice(0, 8);
 
 type OmniInputItem =
   | string
@@ -441,11 +448,12 @@ export async function generateVideo(opts: {
   const task =
     opts.task ?? (hasImages ? "image_to_video" : "text_to_video");
   const imageRole = imageRoleForTask(task, imageCount);
+  const prompt = normalizeGeneratePrompt(opts.prompt);
 
   const started = Date.now();
   const interaction = await createOmniInteraction({
     model: OMNI_FLASH,
-    input: buildOmniInput(opts.prompt, opts.images, imageRole),
+    input: buildOmniInput(prompt, opts.images, imageRole),
     background: false,
     stream: false,
     store: true,

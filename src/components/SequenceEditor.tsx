@@ -292,7 +292,7 @@ export function SequenceEditor() {
           if (!cancelled) {
             setSessionId(null);
             setError(
-              "This director session was not found. Go back to Director, pick a saved session (or generate again), then reopen Sequence editor.",
+              "This tutor session was not found. Go back to Tutor, pick a saved session (or generate again), then reopen Sequence editor.",
             );
           }
           return;
@@ -942,9 +942,11 @@ export function SequenceEditor() {
   return (
     <div className="editor">
       <header className="top">
-        <div>
-          <p className="eyebrow">{productTheme.name} · multi-shot editor</p>
-          <h1>Sequence desk</h1>
+        <div className="brand">
+          <p className="title">Sequence Desk</p>
+          <p className="tagline">
+            {productTheme.name} · Multi-Shot Editor
+          </p>
         </div>
         <nav className="nav">
           <Button asChild variant="outline" size="sm" className="back-btn">
@@ -954,12 +956,12 @@ export function SequenceEditor() {
               }
               title={
                 sessionId
-                  ? "Return to Director with this session"
-                  : "Return to Director"
+                  ? "Return to Tutor with this session"
+                  : "Return to Tutor"
               }
             >
               <ArrowLeftIcon data-icon="inline-start" />
-              Back to Director
+              Back to Tutor
             </Link>
           </Button>
           {sessionId && (
@@ -970,8 +972,8 @@ export function SequenceEditor() {
 
       {!sessionId && !error && (
         <div className="empty">
-          No active director session. Open the{" "}
-          <Link href="/">Director</Link>, generate a video, then click{" "}
+          No active tutor session. Open the{" "}
+          <Link href="/">Tutor</Link>, generate a video, then click{" "}
           <strong>Sequence editor</strong> so this page starts in that same
           session.
         </div>
@@ -1068,8 +1070,8 @@ export function SequenceEditor() {
                 </>
               ) : (
                 <>
-                  Omni edits use a take’s <code>interaction_id</code>. Or merge
-                  first — then edit the stitched export from this panel.
+                  Swap the ASL sign in this same clip (Omni cannot extend). Or
+                  merge first — then edit the stitched export from this panel.
                 </>
               )}
             </p>
@@ -1081,9 +1083,9 @@ export function SequenceEditor() {
               onChange={(e) => setEditText(e.target.value)}
               placeholder={
                 previewIsMergedExport
-                  ? "e.g. Soften the cut between shots. Keep everything else the same."
+                  ? 'e.g. Have her sign ASL "hello" in this same clip.'
                   : selected
-                    ? "e.g. Make the steam thicker. Keep everything else the same."
+                    ? 'e.g. Have her sign ASL "I love you" in this same clip.'
                     : "Select a take, or merge clips first"
               }
               rows={3}
@@ -1464,20 +1466,27 @@ export function SequenceEditor() {
           justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
-          align-items: flex-end;
+          align-items: center;
         }
-        .eyebrow {
-          margin: 0 0 6px;
-          font-size: 12px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: rgba(232, 165, 75, 0.9);
+        .brand {
+          min-width: 0;
         }
-        h1 {
+        /* Match Tutor header: Source Sans 3 · text-sm font-medium + text-xs muted */
+        .title {
           margin: 0;
           font-family: var(--font-sans);
-          font-size: clamp(1.8rem, 3vw, 2.4rem);
-          font-weight: 600;
+          font-size: 0.875rem; /* text-sm */
+          line-height: 1.25rem;
+          font-weight: 500; /* font-medium */
+          color: var(--foreground);
+        }
+        .tagline {
+          margin: 0;
+          font-family: var(--font-sans);
+          font-size: 0.75rem; /* text-xs */
+          line-height: 1rem;
+          font-weight: 400;
+          color: var(--muted-foreground);
         }
         .sub {
           margin: 8px 0 0;

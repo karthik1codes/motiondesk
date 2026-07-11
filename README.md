@@ -1,6 +1,6 @@
-# MotionDesk — Conversational Video & Motion
+# SignDesk — Conversational Video & Motion
 
-Generic director workspace for the **Gemini Omni Flash** challenge.
+Generic tutor workspace for the **Gemini Omni Flash** challenge.
 
 **Pipeline:** NB2 Lite seed stills → Gemini 3 Flash motion prompt → Omni Flash video → Omni Flash multi-turn edits.
 
@@ -39,14 +39,14 @@ Open [http://localhost:3000](http://localhost:3000).
 ```text
 src/
 ├── app/
-│   ├── page.tsx                 # Director UI
+│   ├── page.tsx                 # Tutor UI
 │   └── api/
 │       ├── session/route.ts     # Create session
 │       ├── seed/route.ts        # NB2 Lite still
 │       ├── video/route.ts       # Omni generate (turn 1)
 │       └── edit/route.ts        # Omni edit (turn 2+)
 ├── components/
-│   ├── DirectorWorkspace.tsx    # Main client UI
+│   ├── DirectorWorkspace.tsx    # Main tutor client UI
 │   ├── DirectorChat.tsx         # Multi-turn chat
 │   └── VideoStage.tsx           # Seed / video preview
 └── lib/
@@ -67,7 +67,7 @@ Conversational state is server-side on Gemini via `previous_interaction_id` (`st
 
 ### Multi-shot editor
 
-Open **/editor** (or **Sequence editor** in the director header) after you have generates/edits:
+Open **/editor** (or **Sequence editor** in the tutor header) after you have generates/edits:
 
 - Browse recent Omni takes from the session
 - Continue conversational edit from any take’s `interactionId`
