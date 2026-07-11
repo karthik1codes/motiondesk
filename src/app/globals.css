@@ -1,0 +1,87 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Platform UI type — matches MotionDesk sidebar (Source Sans 3). */
+  --font-sans: "Source Sans 3", system-ui, sans-serif;
+  --font-display: "Source Sans 3", system-ui, sans-serif;
+  --font-heading: "Source Sans 3", system-ui, sans-serif;
+  --bg0: #080c10;
+  --bg1: #0f151a;
+  --ink: #f4f6f8;
+  --brand: #e8a54b;
+  --radius: 0.625rem;
+  --background: #080c10;
+  --foreground: #f4f6f8;
+  --card: #0f151a;
+  --card-foreground: #f4f6f8;
+  --popover: #0f151a;
+  --popover-foreground: #f4f6f8;
+  --primary: #e8a54b;
+  --primary-foreground: #0f151a;
+  --secondary: #1a232b;
+  --secondary-foreground: #f4f6f8;
+  --muted: #1a232b;
+  --muted-foreground: #cfd8e0;
+  --accent: #1a232b;
+  --accent-foreground: #f4f6f8;
+  --destructive: #ef4444;
+  --destructive-foreground: #fef2f2;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #e8a54b;
+  --sidebar: #0f151a;
+  --sidebar-foreground: #f4f6f8;
+  --sidebar-primary: #e8a54b;
+  --sidebar-primary-foreground: #0f151a;
+  --sidebar-accent: #1a232b;
+  --sidebar-accent-foreground: #f4f6f8;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #e8a54b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "kern" 1, "liga" 1;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(232, 165, 75, 0.14), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(80, 140, 180, 0.1), transparent 50%),
+    linear-gradient(180deg, #0c1218 0%, var(--bg0) 40%, #06090c 100%);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+a {
+  color: var(--brand);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased;
+  }
+}

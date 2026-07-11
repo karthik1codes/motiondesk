@@ -1,0 +1,321 @@
+"use client";
+
+import {
+  BookOpenIcon,
+  BotIcon,
+  ChevronRightIcon,
+  ChevronsUpDownIcon,
+  ClapperboardIcon,
+  FilmIcon,
+  GalleryVerticalEndIcon,
+  HistoryIcon,
+  PlusIcon,
+  Settings2Icon,
+  StarIcon,
+  TerminalIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { SessionHistoryEntry } from "@/lib/takes";
+import { productTheme } from "@/lib/theme";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarRail,
+} from "@/components/ui/sidebar";
+
+type Props = {
+  sessionId: string | null;
+  sessionHistory: SessionHistoryEntry[];
+  onNewSession: () => void;
+  onSwitchSession: (id: string) => void;
+  onOpenEditor: () => void;
+  disabled?: boolean;
+};
+
+export function AppSidebar({
+  sessionId,
+  sessionHistory,
+  onNewSession,
+  onSwitchSession,
+  onOpenEditor,
+  disabled,
+}: Props) {
+  const pathname = usePathname();
+  const onDirector = pathname === "/";
+  const onEditor = pathname.startsWith("/editor");
+
+  return (
+    <Sidebar collapsible="offcanvas" variant="sidebar">
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                    <GalleryVerticalEndIcon className="size-4" />
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">
+                      {productTheme.name}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      Director workspace
+                    </span>
+                  </div>
+                  <ChevronsUpDownIcon className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                align="start"
+                side="bottom"
+                sideOffset={4}
+              >
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  Workspace
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={disabled}
+                  onClick={onNewSession}
+                  className="gap-2 p-2"
+                >
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                    <PlusIcon className="size-3.5" />
+                  </div>
+                  New session
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 p-2" asChild>
+                  <Link href="/">
+                    <ClapperboardIcon className="size-4" />
+                    Director
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-2 p-2"
+                  disabled={disabled}
+                  onClick={onOpenEditor}
+                >
+                  <FilmIcon className="size-4" />
+                  Sequence editor
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarMenu>
+            <Collapsible asChild defaultOpen className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip="Playground"
+                    isActive={onDirector}
+                  >
+                    <TerminalIcon />
+                    <span>Playground</span>
+                    <ChevronRightIcon className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton asChild isActive={onDirector}>
+                        <Link href={sessionId ? `/?session=${sessionId}` : "/"}>
+                          <ClapperboardIcon />
+                          <span>Director</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        onClick={onOpenEditor}
+                        isActive={onEditor}
+                      >
+                        <FilmIcon />
+                        <span>Sequence</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        aria-disabled={disabled || undefined}
+                        onClick={() => {
+                          if (disabled) return;
+                          onNewSession();
+                        }}
+                      >
+                        <PlusIcon />
+                        <span>New session</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            <Collapsible asChild defaultOpen className="group/collapsible">
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip="History">
+                    <HistoryIcon />
+                    <span>History</span>
+                    <ChevronRightIcon className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {sessionHistory.length === 0 ? (
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton className="text-muted-foreground">
+                          <span>No sessions yet</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ) : (
+                      sessionHistory.map((entry) => (
+                        <SidebarMenuSubItem key={entry.id}>
+                          <SidebarMenuSubButton
+                            isActive={entry.id === sessionId}
+                            aria-disabled={disabled || undefined}
+                            onClick={() => {
+                              if (disabled) return;
+                              onSwitchSession(entry.id);
+                            }}
+                            title={entry.id}
+                          >
+                            <StarIcon />
+                            <span>
+                              {entry.id.slice(0, 8)}…
+                              {entry.id === sessionId ? " · current" : ""}
+                            </span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))
+                    )}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Models">
+                <BotIcon />
+                <span>Models</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Documentation" asChild>
+                <a
+                  href="https://ai.google.dev/gemini-api/docs/omni"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <BookOpenIcon />
+                  <span>Documentation</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Settings">
+                <Settings2Icon />
+                <span>Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar size="sm" className="rounded-lg">
+                    <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                      MD
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">Director</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      local session
+                    </span>
+                  </div>
+                  <ChevronsUpDownIcon className="ml-auto size-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side="bottom"
+                align="end"
+                sideOffset={4}
+              >
+                <DropdownMenuLabel className="p-0 font-normal">
+                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                    <Avatar size="sm" className="rounded-lg">
+                      <AvatarFallback className="rounded-lg">MD</AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">Director</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {sessionId
+                          ? `Session ${sessionId.slice(0, 8)}…`
+                          : "No active session"}
+                      </span>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={disabled} onClick={onNewSession}>
+                  New session
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={disabled} onClick={onOpenEditor}>
+                  Open sequence editor
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}

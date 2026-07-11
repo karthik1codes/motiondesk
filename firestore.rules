@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Server Admin SDK bypasses these rules.
+    // Deny all client access until Auth is added.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
