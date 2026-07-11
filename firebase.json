@@ -11,6 +11,12 @@
         "oAuthBrandDisplayName": "SignDesk",
         "supportEmail": "noreply@deepmind-2a4e2.firebaseapp.com"
       }
-    }
+    },
+    "authorizedDomains": [
+      "localhost",
+      "127.0.0.1",
+      "deepmind-2a4e2.firebaseapp.com",
+      "deepmind-2a4e2.web.app"
+    ]
   }
 }

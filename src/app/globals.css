@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bangers&family=Source+Sans+3:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -9,6 +9,7 @@
   --font-sans: "Source Sans 3", system-ui, sans-serif;
   --font-display: "Source Sans 3", system-ui, sans-serif;
   --font-heading: "Source Sans 3", system-ui, sans-serif;
+  --font-comic: "Bangers", system-ui, sans-serif;
   --bg0: #080c10;
   --bg1: #0f151a;
   --ink: #f4f6f8;
@@ -83,6 +84,36 @@ h6 {
 
 a {
   color: var(--brand);
+}
+
+/* Login brand — comic display + yellow/purple 3D extrusion */
+.login-brand {
+  font-family: var(--font-comic);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe14a;
+  text-shadow:
+    -1px 1px 0 #2b1a6b,
+    -2px 2px 0 #2b1a6b,
+    -3px 3px 0 #2b1a6b,
+    -4px 4px 0 #2b1a6b,
+    -5px 5px 0 #2b1a6b,
+    -6px 6px 0 #24165c,
+    -7px 7px 0 #1e134f;
+}
+
+.login-brand-tagline {
+  font-family: var(--font-comic);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffe14a;
+  text-shadow:
+    -1px 1px 0 #2b1a6b,
+    -2px 2px 0 #2b1a6b,
+    -3px 3px 0 #2b1a6b,
+    -4px 4px 0 #24165c;
 }
 
 @layer base {

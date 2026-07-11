@@ -30,19 +30,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -253,80 +248,6 @@ export function AppSidebar({
               </SidebarMenuItem>
             </Collapsible>
 
-            <Collapsible asChild defaultOpen className="group/collapsible">
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip="History">
-                    <HistoryIcon />
-                    <span>History</span>
-                    <ChevronRightIcon className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {sessionHistory.length === 0 ? (
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton className="text-muted-foreground">
-                          <span>No sessions yet</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ) : (
-                      sessionHistory.map((entry) => (
-                        <SidebarMenuSubItem key={entry.id}>
-                          <ContextMenu>
-                            <ContextMenuTrigger asChild>
-                              <SidebarMenuSubButton
-                                isActive={entry.id === sessionId}
-                                aria-disabled={disabled || undefined}
-                                onClick={() => {
-                                  if (disabled) return;
-                                  onSwitchSession(entry.id);
-                                }}
-                                title={`${entry.id} · right-click to delete`}
-                              >
-                                <StarIcon />
-                                <span>
-                                  {entry.id.slice(0, 8)}…
-                                  {entry.id === sessionId ? " · current" : ""}
-                                </span>
-                              </SidebarMenuSubButton>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent className="w-56">
-                              <ContextMenuLabel>Session actions</ContextMenuLabel>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem
-                                onSelect={() => onSwitchSession(entry.id)}
-                              >
-                                <ClapperboardIcon />
-                                Open in Tutor
-                              </ContextMenuItem>
-                              <ContextMenuItem
-                                onSelect={() => {
-                                  window.location.href = `/editor?session=${encodeURIComponent(entry.id)}`;
-                                }}
-                              >
-                                <FilmIcon />
-                                Open in Sequence
-                              </ContextMenuItem>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem
-                                variant="destructive"
-                                disabled={disabled}
-                                onSelect={() => onDeleteSession(entry.id)}
-                              >
-                                <Trash2Icon />
-                                Delete permanently
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          </ContextMenu>
-                        </SidebarMenuSubItem>
-                      ))
-                    )}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-
             <SidebarMenuItem>
               <SidebarMenuButton tooltip="Models">
                 <BotIcon />
@@ -421,6 +342,65 @@ export function AppSidebar({
                     </div>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="gap-2">
+                    <HistoryIcon />
+                    History
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-72 w-56 overflow-y-auto">
+                    {sessionHistory.length === 0 ? (
+                      <DropdownMenuItem disabled>
+                        No sessions yet
+                      </DropdownMenuItem>
+                    ) : (
+                      sessionHistory.map((entry) => (
+                        <DropdownMenuSub key={entry.id}>
+                          <DropdownMenuSubTrigger
+                            disabled={disabled}
+                            className="gap-2"
+                          >
+                            <StarIcon />
+                            <span className="truncate">
+                              {entry.id.slice(0, 8)}…
+                              {entry.id === sessionId ? " · current" : ""}
+                            </span>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-52">
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">
+                              Session actions
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              disabled={disabled}
+                              onClick={() => onSwitchSession(entry.id)}
+                            >
+                              <ClapperboardIcon />
+                              Open in Tutor
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                window.location.href = `/editor?session=${encodeURIComponent(entry.id)}`;
+                              }}
+                            >
+                              <FilmIcon />
+                              Open in Sequence
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={disabled}
+                              onClick={() => onDeleteSession(entry.id)}
+                            >
+                              <Trash2Icon />
+                              Delete permanently
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      ))
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 {configured && !user ? (
                   <DropdownMenuItem

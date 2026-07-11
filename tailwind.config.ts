@@ -73,6 +73,7 @@ const config: Config = {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         heading: ["var(--font-heading)", "system-ui", "sans-serif"],
+        comic: ["var(--font-comic)", "system-ui", "sans-serif"],
       },
     },
   },
