@@ -191,6 +191,21 @@ export function DirectorWorkspace() {
     setSessionHistory(rememberSessionInHistory(id));
   }, []);
 
+  /** One shared session id for Tutor + Sequence, mirrored to Firebase. */
+  const bindSharedSession = useCallback(
+    (id: string) => {
+      rememberSession(id);
+      void fetch(`/api/session/${id}/cloud`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }).catch(() => {
+        /* cloud optional — local shared session still works */
+      });
+    },
+    [rememberSession],
+  );
+
   useEffect(() => {
     setSessionHistory(readSessionHistory());
     let cancelled = false;
@@ -250,7 +265,7 @@ export function DirectorWorkspace() {
 
   const applyResumedSession = useCallback(
     (data: SessionResumePayload, opts?: { syncUrl?: boolean }) => {
-      rememberSession(data.sessionId);
+      bindSharedSession(data.sessionId);
       if (opts?.syncUrl !== false) {
         const url = new URL(window.location.href);
         url.searchParams.set("session", data.sessionId);
@@ -288,7 +303,7 @@ export function DirectorWorkspace() {
         setMessages([]);
       }
     },
-    [rememberSession],
+    [bindSharedSession],
   );
 
   /** Resume the same persisted session after refresh / editor round-trip. */
@@ -355,7 +370,7 @@ export function DirectorWorkspace() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create session");
       const id = (data.session as SessionSummary).id;
-      rememberSession(id);
+      bindSharedSession(id);
       const url = new URL(window.location.href);
       url.searchParams.set("session", id);
       window.history.replaceState({}, "", url.toString());
@@ -372,11 +387,11 @@ export function DirectorWorkspace() {
   }, [
     aspectRatio,
     beginBusy,
+    bindSharedSession,
     busyJobs.session,
     endBusy,
     fail,
     pushMessage,
-    rememberSession,
     resetWorkspaceLocalState,
   ]);
 
@@ -437,13 +452,14 @@ export function DirectorWorkspace() {
       typeof window !== "undefined"
         ? window.localStorage.getItem(LAST_SESSION_KEY)
         : null;
+    // Prefer the in-memory Tutor session so Sequence never forks a second id.
     const candidate = sessionId || fromQuery || fromStore;
 
     if (candidate) {
       try {
         const check = await fetch(`/api/session/${candidate}`);
         if (check.ok) {
-          rememberSession(candidate);
+          bindSharedSession(candidate);
           return candidate;
         }
         setSessionHistory(forgetSessionFromHistory(candidate));
@@ -460,21 +476,68 @@ export function DirectorWorkspace() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed to create session");
     const id = (data.session as SessionSummary).id;
-    rememberSession(id);
+    bindSharedSession(id);
     return id;
-  }, [aspectRatio, rememberSession, sessionId]);
+  }, [aspectRatio, bindSharedSession, sessionId]);
 
   const openSequenceEditor = async () => {
     setError(null);
     try {
-      // Prefer URL / memory / localStorage so we never open the editor on a
-      // brand-new empty session while the tutor session is still hydrating.
       const sid = await ensureSession();
+      // Same session id as Tutor — Sequence never gets a different workspace.
       router.push(`/editor?session=${encodeURIComponent(sid)}`);
     } catch (e) {
       fail(e, "Could not open sequence editor");
     }
   };
+
+  const deleteSessionFromHistory = useCallback(
+    async (id: string) => {
+      if (busyJobs.session) return;
+      const confirmed = window.confirm(
+        `Permanently delete session ${id.slice(0, 8)}… from this browser and Firebase cloud?`,
+      );
+      if (!confirmed) return;
+
+      beginBusy("session", "Deleting session…");
+      setError(null);
+      try {
+        const res = await fetch(`/api/session/${id}`, { method: "DELETE" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            (data as { error?: string }).error ?? "Failed to delete session",
+          );
+        }
+        const next = forgetSessionFromHistory(id);
+        setSessionHistory(next);
+
+        if (sessionId === id) {
+          resetWorkspaceLocalState();
+          setSessionId(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete("session");
+          window.history.replaceState({}, "", url.toString());
+          if (next[0]?.id) {
+            await switchToSession(next[0].id);
+          }
+        }
+      } catch (e) {
+        fail(e, "Could not delete session");
+      } finally {
+        endBusy("session");
+      }
+    },
+    [
+      beginBusy,
+      busyJobs.session,
+      endBusy,
+      fail,
+      resetWorkspaceLocalState,
+      sessionId,
+      switchToSession,
+    ],
+  );
 
   const onSeed = async () => {
     if (busyJobs.seed) return;
@@ -494,7 +557,7 @@ export function DirectorWorkspace() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Seed failed");
-      rememberSession(data.sessionId);
+      bindSharedSession(data.sessionId);
       setSeedUrl(toDataUrl(data.image.mimeType, data.image.data));
       if (typeof data.motionPrompt === "string" && data.motionPrompt.trim()) {
         setMotionPrompt(data.motionPrompt.trim());
@@ -589,7 +652,7 @@ export function DirectorWorkspace() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Video generation failed");
-      rememberSession(data.sessionId);
+      bindSharedSession(data.sessionId);
       setInteractionId(data.interactionId);
       setVideoUrl(toDataUrl(data.video.mimeType, data.video.data));
       setLastLatency(data.latencyMs);
@@ -664,6 +727,7 @@ export function DirectorWorkspace() {
         sessionHistory={sessionHistory}
         onNewSession={startNewSession}
         onSwitchSession={(id) => void switchToSession(id)}
+        onDeleteSession={(id) => void deleteSessionFromHistory(id)}
         onOpenEditor={openSequenceEditor}
         disabled={Boolean(busyJobs.session)}
       />

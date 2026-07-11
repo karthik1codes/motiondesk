@@ -80,6 +80,21 @@ export function getSession(id: string): DirectorSession | undefined {
   return loadSessionFromDisk(id);
 }
 
+/** Remove a session from memory and disk (cloud delete is separate). */
+export function deleteSession(id: string): boolean {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    throw new Error("Invalid session id");
+  }
+  sessions.delete(id);
+  try {
+    const file = sessionFilePath(id);
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  } catch (err) {
+    console.warn("[session] disk delete skipped:", err);
+  }
+  return true;
+}
+
 export function saveSession(session: DirectorSession): DirectorSession {
   session.updatedAt = new Date().toISOString();
   sessions.set(session.id, session);

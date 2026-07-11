@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { hydrateSessionFromCloud } from "@/lib/cloud-archive";
+import {
+  deleteSessionFromCloud,
+  hydrateSessionFromCloud,
+} from "@/lib/cloud-archive";
 import { isCloudArchiveEnabled } from "@/lib/firebase-admin";
-import { getSession, summarizeSession } from "@/lib/session";
+import { deleteSession, getSession, summarizeSession } from "@/lib/session";
 import { listTakesFromSession } from "@/lib/takes";
 
 export const runtime = "nodejs";
-/** Cloud hydrate may download several video blobs. */
+/** Cloud hydrate / full session delete may touch many Storage objects. */
 export const maxDuration = 120;
 
 /** GET — resume a director session (same id used by Sequence editor). */
@@ -64,5 +67,37 @@ export async function GET(
           latestVideo: session.latestVideo,
         }
       : {}),
+  });
+}
+
+/** DELETE — remove session locally and from Firebase (History right-click). */
+export async function DELETE(
+  _req: Request,
+  ctx: { params: Promise<{ sessionId: string }> },
+) {
+  const { sessionId } = await ctx.params;
+  try {
+    deleteSession(sessionId);
+  } catch {
+    return NextResponse.json({ error: "Invalid session id" }, { status: 400 });
+  }
+
+  let cloudDeleted = false;
+  let cloudError: string | null = null;
+  if (isCloudArchiveEnabled()) {
+    try {
+      await deleteSessionFromCloud(sessionId);
+      cloudDeleted = true;
+    } catch (err) {
+      cloudError = err instanceof Error ? err.message : "Cloud delete failed";
+      console.error("[session] cloud delete", cloudError);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    sessionId,
+    cloudDeleted,
+    cloudError,
   });
 }

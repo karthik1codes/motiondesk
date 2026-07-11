@@ -310,6 +310,30 @@ export async function deleteTakeFromCloud(opts: {
   }
 }
 
+/** Delete an entire session from Firestore + Storage. */
+export async function deleteSessionFromCloud(sessionId: string): Promise<void> {
+  if (!isCloudArchiveEnabled()) return;
+  if (!/^[0-9a-f-]{36}$/i.test(sessionId)) {
+    throw new Error("Invalid session id");
+  }
+
+  const db = getDb();
+  const sessionRef = db.collection("sessions").doc(sessionId);
+
+  // Delete subcollections first (turns + events).
+  for (const sub of ["turns", "events"] as const) {
+    const snap = await sessionRef.collection(sub).get();
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  }
+  await sessionRef.delete();
+
+  const bucket = getBucket();
+  const [files] = await bucket.getFiles({
+    prefix: `sessions/${sessionId}/`,
+  });
+  await Promise.all(files.map((f) => f.delete({ ignoreNotFound: true })));
+}
+
 export type CloudSessionSummary = {
   id: string;
   createdAt: string;

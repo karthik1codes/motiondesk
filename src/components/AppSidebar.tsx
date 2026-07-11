@@ -13,6 +13,7 @@ import {
   Settings2Icon,
   StarIcon,
   TerminalIcon,
+  Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -24,6 +25,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +62,7 @@ type Props = {
   sessionHistory: SessionHistoryEntry[];
   onNewSession: () => void;
   onSwitchSession: (id: string) => void;
+  onDeleteSession: (id: string) => void;
   onOpenEditor: () => void;
   disabled?: boolean;
 };
@@ -62,12 +72,19 @@ export function AppSidebar({
   sessionHistory,
   onNewSession,
   onSwitchSession,
+  onDeleteSession,
   onOpenEditor,
   disabled,
 }: Props) {
   const pathname = usePathname();
   const onDirector = pathname === "/";
   const onEditor = pathname.startsWith("/editor");
+  const sharedSessionHref = sessionId
+    ? `/?session=${encodeURIComponent(sessionId)}`
+    : "/";
+  const sharedEditorHref = sessionId
+    ? `/editor?session=${encodeURIComponent(sessionId)}`
+    : "/editor";
 
   return (
     <Sidebar collapsible="offcanvas" variant="sidebar">
@@ -115,7 +132,7 @@ export function AppSidebar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2 p-2" asChild>
-                  <Link href="/">
+                  <Link href={sharedSessionHref}>
                     <ClapperboardIcon className="size-4" />
                     Tutor
                   </Link>
@@ -144,10 +161,7 @@ export function AppSidebar({
             <Collapsible asChild defaultOpen className="group/collapsible">
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton
-                    tooltip="Playground"
-                    isActive={onDirector}
-                  >
+                  <SidebarMenuButton tooltip="Playground" isActive={onDirector}>
                     <TerminalIcon />
                     <span>Playground</span>
                     <ChevronRightIcon className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -157,7 +171,7 @@ export function AppSidebar({
                   <SidebarMenuSub>
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton asChild isActive={onDirector}>
-                        <Link href={sessionId ? `/?session=${sessionId}` : "/"}>
+                        <Link href={sharedSessionHref}>
                           <ClapperboardIcon />
                           <span>Tutor</span>
                         </Link>
@@ -166,14 +180,8 @@ export function AppSidebar({
                     <SidebarMenuSubItem>
                       <SidebarMenuSubButton asChild isActive={onEditor}>
                         <Link
-                          href={
-                            sessionId
-                              ? `/editor?session=${encodeURIComponent(sessionId)}`
-                              : "/editor"
-                          }
+                          href={sharedEditorHref}
                           onClick={(e) => {
-                            // When React state hasn't hydrated the session yet,
-                            // let openSequenceEditor resolve URL / localStorage.
                             if (!sessionId) {
                               e.preventDefault();
                               onOpenEditor();
@@ -222,21 +230,52 @@ export function AppSidebar({
                     ) : (
                       sessionHistory.map((entry) => (
                         <SidebarMenuSubItem key={entry.id}>
-                          <SidebarMenuSubButton
-                            isActive={entry.id === sessionId}
-                            aria-disabled={disabled || undefined}
-                            onClick={() => {
-                              if (disabled) return;
-                              onSwitchSession(entry.id);
-                            }}
-                            title={entry.id}
-                          >
-                            <StarIcon />
-                            <span>
-                              {entry.id.slice(0, 8)}…
-                              {entry.id === sessionId ? " · current" : ""}
-                            </span>
-                          </SidebarMenuSubButton>
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              <SidebarMenuSubButton
+                                isActive={entry.id === sessionId}
+                                aria-disabled={disabled || undefined}
+                                onClick={() => {
+                                  if (disabled) return;
+                                  onSwitchSession(entry.id);
+                                }}
+                                title={`${entry.id} · right-click to delete`}
+                              >
+                                <StarIcon />
+                                <span>
+                                  {entry.id.slice(0, 8)}…
+                                  {entry.id === sessionId ? " · current" : ""}
+                                </span>
+                              </SidebarMenuSubButton>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-56">
+                              <ContextMenuLabel>Session actions</ContextMenuLabel>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                onSelect={() => onSwitchSession(entry.id)}
+                              >
+                                <ClapperboardIcon />
+                                Open in Tutor
+                              </ContextMenuItem>
+                              <ContextMenuItem
+                                onSelect={() => {
+                                  window.location.href = `/editor?session=${encodeURIComponent(entry.id)}`;
+                                }}
+                              >
+                                <FilmIcon />
+                                Open in Sequence
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                variant="destructive"
+                                disabled={disabled}
+                                onSelect={() => onDeleteSession(entry.id)}
+                              >
+                                <Trash2Icon />
+                                Delete permanently
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
                         </SidebarMenuSubItem>
                       ))
                     )}
@@ -292,7 +331,9 @@ export function AppSidebar({
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">Tutor</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      local session
+                      {sessionId
+                        ? `Session ${sessionId.slice(0, 8)}…`
+                        : "local session"}
                     </span>
                   </div>
                   <ChevronsUpDownIcon className="ml-auto size-4" />
@@ -314,18 +355,11 @@ export function AppSidebar({
                       <span className="truncate text-xs text-muted-foreground">
                         {sessionId
                           ? `Session ${sessionId.slice(0, 8)}…`
-                          : "No active session"}
+                          : "No session"}
                       </span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={disabled} onClick={onNewSession}>
-                  New session
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={disabled} onClick={onOpenEditor}>
-                  Open sequence editor
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

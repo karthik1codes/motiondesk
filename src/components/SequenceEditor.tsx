@@ -331,6 +331,13 @@ export function SequenceEditor() {
           setAspectRatio(data.aspectRatio);
         }
         rememberSessionInHistory(data.sessionId);
+        void fetch(`/api/session/${data.sessionId}/cloud`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }).catch(() => {
+          /* cloud optional */
+        });
         // Keep the URL pinned to this session for share/reload.
         const url = new URL(window.location.href);
         url.searchParams.set("session", data.sessionId);
