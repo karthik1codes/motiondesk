@@ -180,6 +180,9 @@ export async function generateMotionPromptFromSeed(opts: {
   };
 }
 
+/** Used only if Flash returns a malformed plan. */
+const productThemeFallbackEdits = [...productTheme.exampleEdits].slice(0, 8);
+
 function parseMotionPlan(raw: string): {
   prompt: string;
   plannedEdits: string[];
@@ -214,9 +217,6 @@ function parseMotionPlan(raw: string): {
     };
   }
 }
-
-/** Used only if Flash returns a malformed plan. */
-const productThemeFallbackEdits = [...productTheme.exampleEdits].slice(0, 8);
 
 type OmniInputItem =
   | string

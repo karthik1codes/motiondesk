@@ -392,7 +392,29 @@ export function DirectorWorkspace() {
   );
 
   const ensureSession = useCallback(async () => {
-    if (sessionId) return sessionId;
+    const fromQuery =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("session")
+        : null;
+    const fromStore =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(LAST_SESSION_KEY)
+        : null;
+    const candidate = sessionId || fromQuery || fromStore;
+
+    if (candidate) {
+      try {
+        const check = await fetch(`/api/session/${candidate}`);
+        if (check.ok) {
+          rememberSession(candidate);
+          return candidate;
+        }
+        setSessionHistory(forgetSessionFromHistory(candidate));
+      } catch {
+        /* fall through and create a fresh session */
+      }
+    }
+
     const res = await fetch("/api/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -408,6 +430,8 @@ export function DirectorWorkspace() {
   const openSequenceEditor = async () => {
     setError(null);
     try {
+      // Prefer URL / memory / localStorage so we never open the editor on a
+      // brand-new empty session while the tutor session is still hydrating.
       const sid = await ensureSession();
       router.push(`/editor?session=${encodeURIComponent(sid)}`);
     } catch (e) {
@@ -606,20 +630,20 @@ export function DirectorWorkspace() {
         onOpenEditor={openSequenceEditor}
         disabled={Boolean(busyJobs.session)}
       />
-      <SidebarInset className="flex h-svh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/60 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="h-4 w-px bg-border" />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
+      <SidebarInset className="flex min-h-svh min-w-0 flex-1 flex-col overflow-x-hidden lg:h-svh lg:overflow-hidden">
+        <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2 sm:px-4">
+          <SidebarTrigger className="-ml-1 shrink-0" />
+          <div className="hidden h-4 w-px shrink-0 bg-border sm:block" />
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{productTheme.name}</p>
               <p className="truncate text-xs text-muted-foreground">
                 {productTheme.tagline}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                Aspect
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground sm:gap-2">
+                <span className="sr-only sm:not-sr-only">Aspect</span>
                 <select
                   value={aspectRatio}
                   disabled={Boolean(busyJobs.session)}
@@ -627,19 +651,20 @@ export function DirectorWorkspace() {
                     setAspectRatio(e.target.value as AspectRatio)
                   }
                   className="rounded-md border border-input bg-card px-2 py-1.5 text-xs text-foreground"
+                  aria-label="Aspect ratio"
                 >
                   <option value="16:9">16:9</option>
                   <option value="9:16">9:16</option>
                 </select>
               </label>
               {lastLatency != null && (
-                <span className="rounded-full border border-primary/35 bg-primary/15 px-2.5 py-1 text-[12px]">
+                <span className="hidden rounded-full border border-primary/35 bg-primary/15 px-2.5 py-1 text-[12px] sm:inline">
                   Last: {lastLatency}ms
                 </span>
               )}
               {sessionId && (
                 <span
-                  className="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[12px] text-muted-foreground"
+                  className="hidden rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[12px] text-muted-foreground sm:inline"
                   title={sessionId}
                 >
                   Session {sessionId.slice(0, 8)}
@@ -651,19 +676,20 @@ export function DirectorWorkspace() {
 
         {error && (
           <div
-            className="mx-5 mt-4 flex items-start justify-between gap-4 rounded-xl border border-red-400/45 bg-red-900/30 px-3.5 py-3 text-red-100"
+            className="mx-3 mt-3 flex items-start justify-between gap-3 rounded-xl border border-red-400/45 bg-red-900/30 px-3 py-3 text-red-100 sm:mx-5 sm:mt-4 sm:gap-4 sm:px-3.5"
             role="alert"
           >
-            <div>
+            <div className="min-w-0 flex-1">
               <strong className="mb-1 block text-[13px] text-red-200">
                 Request failed
               </strong>
-              <p className="m-0 text-sm leading-snug">{error}</p>
+              <p className="m-0 break-words text-sm leading-snug">{error}</p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="shrink-0"
               onClick={() => setError(null)}
             >
               Dismiss
@@ -673,20 +699,20 @@ export function DirectorWorkspace() {
 
         {busyHints.length > 0 && !error && (
           <div
-            className="mx-5 mt-4 flex flex-col gap-1.5 rounded-xl border border-primary/35 bg-primary/10 px-3.5 py-3 text-sm text-amber-100"
+            className="mx-3 mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/35 bg-primary/10 px-3 py-3 text-sm text-amber-100 sm:mx-5 sm:mt-4 sm:px-3.5"
             role="status"
           >
             {busyHints.map((hint) => (
               <div key={hint} className="flex items-center gap-2.5">
                 <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-primary" />
-                <p className="m-0">{hint}</p>
+                <p className="m-0 min-w-0 break-words">{hint}</p>
               </div>
             ))}
           </div>
         )}
 
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(22rem,28rem)] lg:items-stretch lg:overflow-hidden">
-          <div className="min-h-0 overflow-y-auto rounded-2xl border border-border/70 bg-card/80 p-4 lg:overflow-hidden">
+        <div className="grid min-h-0 min-w-0 flex-1 gap-3 overflow-x-hidden overflow-y-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-4 sm:p-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(22rem,28rem)] lg:items-stretch lg:overflow-hidden lg:pb-5">
+          <div className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card/80 p-3 sm:p-4 lg:overflow-hidden">
             <VideoStage
               videoUrl={videoUrl}
               seedUrl={seedUrl}
@@ -695,7 +721,7 @@ export function DirectorWorkspace() {
             />
           </div>
           <DirectorPipelinePanel
-            className="min-h-[36rem] lg:min-h-0 lg:h-full"
+            className="min-h-0 max-lg:h-auto lg:h-full"
             activeTab={pipelineTab}
             onTabChange={setPipelineTab}
             seedPrompt={seedPrompt}

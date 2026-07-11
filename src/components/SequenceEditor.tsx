@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeftIcon,
   CombineIcon,
@@ -24,6 +25,7 @@ import {
   createMergedShot,
   flattenSequenceTakeIds,
   normalizeSequence,
+  readSessionHistory,
   rememberSessionInHistory,
   sequenceStorageKey,
   type SequenceShot,
@@ -51,8 +53,16 @@ type LoadedTake = TakeSummary & {
  * takes back-to-back (right-click to select, then Merge).
  */
 export function SequenceEditor() {
+  const searchParams = useSearchParams();
+  const sessionFromUrl = searchParams.get("session");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [recentSessions, setRecentSessions] = useState<
+    ReturnType<typeof readSessionHistory>
+  >([]);
+  /** False until the first session bootstrap attempt finishes. */
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  const loadGenRef = useRef(0);
   const [takes, setTakes] = useState<TakeSummary[]>([]);
   const [loaded, setLoaded] = useState<Record<string, LoadedTake>>({});
   const loadedRef = useRef<Record<string, LoadedTake>>({});
@@ -276,28 +286,46 @@ export function SequenceEditor() {
   );
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get("session");
-    const fromStore = window.localStorage.getItem(LAST_SESSION_KEY);
-    const sid = fromQuery || fromStore;
-    if (!sid) return;
+    const fromQuery =
+      sessionFromUrl ||
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("session")
+        : null);
+    const fromStore =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(LAST_SESSION_KEY)
+        : null;
+    const fromHistory =
+      typeof window !== "undefined"
+        ? readSessionHistory()[0]?.id ?? null
+        : null;
+    const sid = fromQuery || fromStore || fromHistory;
+    if (!sid) {
+      setSessionId(null);
+      setRecentSessions(readSessionHistory());
+      setBootstrapped(true);
+      return;
+    }
 
+    const gen = ++loadGenRef.current;
     let cancelled = false;
     (async () => {
+      beginBusy("load", "Opening session…");
       try {
         const res = await fetch(`/api/session/${sid}`);
         const data = await res.json();
+        if (cancelled || gen !== loadGenRef.current) return;
         if (!res.ok) {
           window.localStorage.removeItem(LAST_SESSION_KEY);
-          if (!cancelled) {
-            setSessionId(null);
-            setError(
-              "This tutor session was not found. Go back to Tutor, pick a saved session (or generate again), then reopen Sequence editor.",
-            );
-          }
+          setSessionId(null);
+          setTakes([]);
+          setRecentSessions(readSessionHistory());
+          setError(
+            "This tutor session was not found. Go back to Tutor, pick a saved session (or generate again), then reopen Sequence editor.",
+          );
           return;
         }
-        if (cancelled) return;
+        setError(null);
         setSessionId(data.sessionId);
         if (data.aspectRatio === "16:9" || data.aspectRatio === "9:16") {
           setAspectRatio(data.aspectRatio);
@@ -320,8 +348,13 @@ export function SequenceEditor() {
         }
         await refreshTakes(data.sessionId);
       } catch (e) {
-        if (!cancelled) {
+        if (!cancelled && gen === loadGenRef.current) {
           setError(formatApiError(e, "Failed to resume session"));
+        }
+      } finally {
+        if (!cancelled && gen === loadGenRef.current) {
+          endBusy("load");
+          setBootstrapped(true);
         }
       }
     })();
@@ -329,7 +362,7 @@ export function SequenceEditor() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTakes]);
+  }, [sessionFromUrl, refreshTakes, beginBusy, endBusy]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -970,12 +1003,37 @@ export function SequenceEditor() {
         </nav>
       </header>
 
-      {!sessionId && !error && (
+      {!sessionId && !error && bootstrapped && !busyJobs.load && (
         <div className="empty">
           No active tutor session. Open the{" "}
           <Link href="/">Tutor</Link>, generate a video, then click{" "}
-          <strong>Sequence editor</strong> so this page starts in that same
-          session.
+          <strong>Sequence</strong> in the sidebar so this page starts in that
+          same session.
+          {recentSessions.length > 0 && (
+            <div className="row" style={{ marginTop: 12 }}>
+              {recentSessions.slice(0, 4).map((entry) => (
+                <Link
+                  key={entry.id}
+                  href={`/editor?session=${encodeURIComponent(entry.id)}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    background: "transparent",
+                    color: "#cfd8e0",
+                    border: "1px solid rgba(255, 255, 255, 0.14)",
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  Resume {entry.id.slice(0, 8)}…
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1456,20 +1514,26 @@ export function SequenceEditor() {
         .editor {
           max-width: 1200px;
           margin: 0 auto;
-          padding: 28px 20px 48px;
+          padding: 20px 14px 40px;
+          padding-bottom: max(40px, env(safe-area-inset-bottom));
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 16px;
+          width: 100%;
+          min-width: 0;
+          overflow-x: hidden;
+          box-sizing: border-box;
         }
         .top {
           display: flex;
           justify-content: space-between;
-          gap: 16px;
+          gap: 12px;
           flex-wrap: wrap;
-          align-items: center;
+          align-items: flex-start;
         }
         .brand {
           min-width: 0;
+          flex: 1 1 12rem;
         }
         /* Match Tutor header: Source Sans 3 · text-sm font-medium + text-xs muted */
         .title {
@@ -1497,8 +1561,10 @@ export function SequenceEditor() {
         }
         .nav {
           display: flex;
-          gap: 12px;
+          gap: 8px;
           align-items: center;
+          flex-wrap: wrap;
+          max-width: 100%;
         }
         .back-btn {
           border-color: rgba(232, 165, 75, 0.45);
@@ -1515,6 +1581,10 @@ export function SequenceEditor() {
           border-radius: 999px;
           border: 1px solid rgba(255, 255, 255, 0.12);
           color: #cfd8e0;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .empty,
         .banner {
@@ -1522,17 +1592,21 @@ export function SequenceEditor() {
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.1);
           background: rgba(15, 21, 26, 0.85);
+          min-width: 0;
+          overflow-wrap: anywhere;
         }
         .banner {
           display: flex;
           justify-content: space-between;
           gap: 12px;
-          align-items: center;
+          align-items: flex-start;
+          flex-wrap: wrap;
         }
         .busy-stack {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          min-width: 0;
         }
         .banner.error {
           background: rgba(180, 40, 40, 0.22);
@@ -1548,17 +1622,15 @@ export function SequenceEditor() {
           display: grid;
           grid-template-columns: 1.2fr 0.9fr;
           gap: 18px;
-        }
-        @media (max-width: 900px) {
-          .grid {
-            grid-template-columns: 1fr;
-          }
+          min-width: 0;
         }
         .panel {
           background: rgba(15, 21, 26, 0.85);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 18px;
           padding: 16px;
+          min-width: 0;
+          overflow: hidden;
         }
         h2 {
           margin: 0 0 10px;
@@ -1575,14 +1647,16 @@ export function SequenceEditor() {
           place-items: center;
           margin-bottom: 10px;
           margin-inline: auto;
+          max-width: 100%;
         }
         .stage.landscape {
           width: 100%;
           aspect-ratio: 16 / 9;
+          max-height: min(46svh, 420px);
         }
         .stage.portrait {
           width: min(100%, 360px);
-          max-height: min(72vh, 640px);
+          max-height: min(62svh, 560px);
           aspect-ratio: 9 / 16;
         }
         .stage video {
@@ -1594,9 +1668,11 @@ export function SequenceEditor() {
           color: rgba(207, 216, 224, 0.7);
           font-size: 13px;
           margin: 0 0 10px;
+          overflow-wrap: anywhere;
         }
         textarea {
           width: 100%;
+          max-width: 100%;
           resize: vertical;
           background: rgba(0, 0, 0, 0.35);
           border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1605,6 +1681,7 @@ export function SequenceEditor() {
           color: #f4f6f8;
           font-size: 13px;
           margin-bottom: 8px;
+          box-sizing: border-box;
         }
         button {
           background: #e8a54b;
@@ -1630,6 +1707,10 @@ export function SequenceEditor() {
           flex-wrap: wrap;
           gap: 8px;
           margin-top: 8px;
+        }
+        .row > button {
+          flex: 1 1 auto;
+          min-width: min(100%, 9.5rem);
         }
         .upload-bar {
           display: flex;
@@ -1664,6 +1745,7 @@ export function SequenceEditor() {
           border-radius: 12px;
           padding: 8px;
           background: rgba(0, 0, 0, 0.2);
+          min-width: 0;
         }
         .takes li.active {
           border-color: rgba(232, 165, 75, 0.75);
@@ -1686,6 +1768,7 @@ export function SequenceEditor() {
         .take-main,
         .shot-main {
           flex: 1;
+          min-width: 0;
           text-align: left;
           background: transparent;
           color: #f4f6f8;
@@ -1720,16 +1803,54 @@ export function SequenceEditor() {
         .label {
           font-size: 13px;
           line-height: 1.35;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
         .ops {
           display: flex;
+          flex-wrap: wrap;
           gap: 4px;
+          flex-shrink: 0;
+          align-content: flex-start;
         }
         .ops button {
           padding: 6px 8px;
           background: transparent;
           color: #cfd8e0;
           border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        @media (max-width: 900px) {
+          .grid {
+            grid-template-columns: 1fr;
+          }
+          .editor {
+            padding: 16px 12px 36px;
+            padding-bottom: max(36px, env(safe-area-inset-bottom));
+          }
+          .panel {
+            padding: 12px;
+            border-radius: 14px;
+          }
+          .takes li,
+          .timeline li {
+            flex-wrap: wrap;
+          }
+          .takes li > .ghost,
+          .timeline li > .ops {
+            width: 100%;
+            justify-content: flex-end;
+          }
+          .row > button {
+            min-width: calc(50% - 4px);
+          }
+        }
+        @media (max-width: 420px) {
+          .row > button {
+            min-width: 100%;
+          }
+          .nav :global(.back-btn) {
+            font-size: 12px;
+          }
         }
       `}</style>
     </div>

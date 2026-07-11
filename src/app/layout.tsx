@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { productTheme } from "@/lib/theme";
@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description: productTheme.description,
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -16,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("dark font-sans antialiased")}>
-      <body className="min-h-svh font-sans antialiased">
+      <body className="min-h-svh max-w-[100vw] overflow-x-hidden font-sans antialiased">
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

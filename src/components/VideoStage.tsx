@@ -7,6 +7,8 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     gap: 12,
     alignItems: "center",
+    width: "100%",
+    minWidth: 0,
   },
   video: {
     width: "100%",
@@ -46,9 +48,11 @@ function stageStyle(aspectRatio: AspectRatio): CSSProperties {
   const isPortrait = aspectRatio === "9:16";
   return {
     position: "relative",
-    width: isPortrait ? "min(100%, 360px)" : "100%",
-    maxHeight: isPortrait ? "min(72vh, 640px)" : undefined,
+    width: "100%",
+    maxWidth: isPortrait ? "min(100%, 360px)" : "100%",
+    maxHeight: isPortrait ? "min(62svh, 560px)" : "min(46svh, 420px)",
     aspectRatio: isPortrait ? "9 / 16" : "16 / 9",
+    marginInline: "auto",
     background:
       "radial-gradient(ellipse at 30% 20%, rgba(232,165,75,0.12), transparent 50%), #080c10",
     border: "1px solid rgba(255,255,255,0.08)",

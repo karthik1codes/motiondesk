@@ -123,7 +123,10 @@ export function AppSidebar({
                 <DropdownMenuItem
                   className="gap-2 p-2"
                   disabled={disabled}
-                  onClick={onOpenEditor}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenEditor();
+                  }}
                 >
                   <FilmIcon className="size-4" />
                   Sequence editor
@@ -161,12 +164,25 @@ export function AppSidebar({
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        onClick={onOpenEditor}
-                        isActive={onEditor}
-                      >
-                        <FilmIcon />
-                        <span>Sequence</span>
+                      <SidebarMenuSubButton asChild isActive={onEditor}>
+                        <Link
+                          href={
+                            sessionId
+                              ? `/editor?session=${encodeURIComponent(sessionId)}`
+                              : "/editor"
+                          }
+                          onClick={(e) => {
+                            // When React state hasn't hydrated the session yet,
+                            // let openSequenceEditor resolve URL / localStorage.
+                            if (!sessionId) {
+                              e.preventDefault();
+                              onOpenEditor();
+                            }
+                          }}
+                        >
+                          <FilmIcon />
+                          <span>Sequence</span>
+                        </Link>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                     <SidebarMenuSubItem>
